@@ -101,10 +101,21 @@ def seed_demo_devices():
 
 
 def log_diagnostic(query: str, device_ip: str, severity: str, root_cause: str, intent: str):
+    now = datetime.datetime.now().isoformat()
     conn = get_conn()
     conn.execute(
         "INSERT INTO diagnostics_log (query, device_ip, severity, root_cause, intent, created_at) VALUES (?,?,?,?,?,?)",
-        (query, device_ip, severity, root_cause, intent, datetime.datetime.now().isoformat())
+        (query, device_ip, severity, root_cause, intent, now)
     )
     conn.commit()
+    row = conn.execute(
+        "SELECT * FROM diagnostics_log WHERE rowid = last_insert_rowid()"
+    ).fetchone()
     conn.close()
+
+    # Async Supabase sync (best-effort)
+    try:
+        from src.supabase_sync import sync_diagnostic_insert
+        sync_diagnostic_insert(dict(row))
+    except Exception:
+        pass

@@ -28,6 +28,8 @@ from src.db   import get_conn, init_all_tables, seed_default_user, seed_demo_dev
 from src.auth import (create_access_token, authenticate_user, change_user_password,
                       get_current_user, require_admin, hash_password)
 from src.agent.graph import run_agent
+from src.supabase_sync import (sync_device_upsert, sync_device_delete,
+                                sync_all_from_sqlite)
 
 PUBLIC_DIR = os.path.join(PROJECT_ROOT, "public")
 ENV_FILE   = os.path.join(PROJECT_ROOT, ".env")
@@ -169,6 +171,9 @@ async def startup_event():
     seed_default_user()
     seed_demo_devices()
     asyncio.create_task(device_monitor_loop())
+    # Push local SQLite data → Supabase on startup
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, sync_all_from_sqlite)
     print("🚀 NetAI API Server ready.")
 
 
@@ -238,7 +243,9 @@ def create_device(req: DeviceCreate,
         conn.commit()
         row = conn.execute("SELECT * FROM devices WHERE ip=?", (req.ip,)).fetchone()
         conn.close()
-        return {"status": "success", "device": dict(row)}
+        device = dict(row)
+        sync_device_upsert(device)
+        return {"status": "success", "device": device}
     except Exception as e:
         conn.close()
         raise HTTPException(status_code=400, detail=str(e))
@@ -264,16 +271,21 @@ def update_device(device_id: int, req: DeviceUpdate,
     conn.commit()
     row = conn.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
     conn.close()
-    return {"status": "success", "device": dict(row)}
+    device = dict(row)
+    sync_device_upsert(device)
+    return {"status": "success", "device": device}
 
 
 @app.delete("/api/devices/{device_id}")
 def delete_device(device_id: int,
                   _: dict = Depends(require_admin)):
     conn = get_conn()
+    row = conn.execute("SELECT ip FROM devices WHERE id=?", (device_id,)).fetchone()
     conn.execute("DELETE FROM devices WHERE id=?", (device_id,))
     conn.commit()
     conn.close()
+    if row:
+        sync_device_delete(row["ip"])
     return {"status": "success"}
 
 
