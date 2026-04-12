@@ -9,3 +9,6 @@ fastapi
 uvicorn
 langchain-groq
 langchain-openai
+requests
+python-telegram-bot>=20.0.0
+supabase

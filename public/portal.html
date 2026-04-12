@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenClaw Mini - Portal</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+        body { background: #f8f9fa; color: #333; min-height: 100vh; overflow-x: hidden; }
+        
+        .header { background: #fff; border-bottom: 1px solid #eef2f5; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .header-title { font-size: 18px; font-weight: 700; color: #111; display:flex; align-items:center; gap:8px;}
+        .header-sub { font-size: 13px; color: #6b7280; margin-top: 4px; font-weight: 500;}
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+        .btn-top { border: none; background: #eef2f5; border-radius: 6px; padding: 8px; font-size: 14px; cursor: pointer; color: #4b5563; }
+        .btn-top:hover { background: #e5e7eb; }
+        .btn-top.success { background: #d1fae5; color: #047857; font-weight: 600; padding: 8px 16px;}
+        .btn-top.success:hover { background: #10b981; color: #fff;}
+        .btn-top.primary { background: #10b981; color: #fff; font-weight: 600; padding: 8px 16px;}
+        .btn-top.primary:hover { background: #059669; }
+
+        .nav-tabs { display: flex; padding: 0 32px; background: #fff; border-bottom: 1px solid #eef2f5; gap: 32px; }
+        .tab { padding: 16px 0; font-size: 14px; font-weight: 600; color: #6b7280; text-decoration: none; border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px;}
+        .tab.active { color: #10b981; border-bottom-color: #10b981; }
+        .tab:hover:not(.active) { color: #374151; }
+
+        .container { max-width: 1200px; margin: 32px auto; padding: 0 32px; display: grid; grid-template-columns: 240px 1fr; gap: 32px; }
+        
+        .sidebar-menu { display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-item { padding: 12px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; color: #4b5563; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.2s;}
+        .sidebar-item:hover { background: #f3f4f6; }
+        .sidebar-item.active { background: #f0fdf4; color: #10b981; border-left: 3px solid #10b981; border-radius: 0 8px 8px 0; }
+
+        .sidebar-title { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; padding-left: 16px;}
+
+        .card { background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .card-header { margin-bottom: 24px; }
+        .card-title { font-size: 18px; font-weight: 700; color: #111; margin-bottom: 6px; }
+        .card-subtitle { font-size: 13px; color: #6b7280; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+        .info-label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+        .info-value { font-size: 14px; color: #6b7280; }
+        
+        .badge { background: #d1fae5; color: #047857; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-block;}
+
+        .btn-main { background: #10b981; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; transition: 0.2s;}
+        .btn-main:hover { background: #059669; }
+
+        .divider { height: 1px; background: #e5e7eb; margin: 32px 0; }
+        
+        .token-box { background: #f9fafb; border: 1px dashed #d1d5db; padding: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;}
+        .token-val { font-size: 18px; letter-spacing: 2px; color: #111; user-select: all; font-family: monospace;}
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <div class="header-title">OpenClaw Mini</div>
+            <div class="header-sub">bsd2rwdb5.tino.page</div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-top primary"><i class="fas fa-plus" style="margin-right:6px;"></i> Gia hạn</button>
+            <button class="btn-top success">Nâng cấp dịch vụ</button>
+            <button class="btn-top"><i class="fas fa-desktop"></i></button>
+            <button class="btn-top"><i class="fas fa-power-off"></i></button>
+            <button class="btn-top"><i class="fas fa-sync-alt"></i></button>
+            <button class="btn-top"><i class="fas fa-tools"></i></button>
+        </div>
+    </div>
+
+    <div class="nav-tabs">
+        <a class="tab"><i class="fas fa-th-large"></i> Tổng quan</a>
+        <a class="tab active"><i class="fas fa-microchip"></i> OpenClaw</a>
+        <a class="tab"><i class="fas fa-key"></i> SSH Keys</a>
+        <a class="tab"><i class="fas fa-history"></i> Backups</a>
+        <a class="tab"><i class="fas fa-file-invoice-dollar"></i> Hoá đơn</a>
+    </div>
+
+    <div class="container">
+        
+        <div>
+            <div class="sidebar-title"><i class="fas fa-robot"></i> OpenClaw</div>
+            <div class="sidebar-menu">
+                <div class="sidebar-item active">
+                    <i class="far fa-id-card"></i> Thông tin dịch vụ
+                </div>
+                <div class="sidebar-item">
+                    <i class="fas fa-globe"></i> Tên miền & SSL
+                </div>
+                <div class="sidebar-item">
+                    <i class="fas fa-cog"></i> Cấu hình AI
+                </div>
+                <div class="sidebar-item">
+                    <i class="fas fa-project-diagram"></i> Multi-Agent
+                </div>
+                <div class="sidebar-item">
+                    <i class="far fa-comments"></i> Kênh kết nối
+                </div>
+                <div class="sidebar-item">
+                    <i class="far fa-arrow-alt-circle-up"></i> Phiên bản & Nâng cấp
+                </div>
+                <div class="sidebar-item" onclick="logout()" style="color: #ef4444; border-top: 1px solid #e5e7eb; margin-top: 16px; border-radius: 0;">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Thông tin dịch vụ</h2>
+                    <p class="card-subtitle">Xem thông tin tổng quan về OpenClaw AI Manager.</p>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Tên miền</div>
+                        <div class="info-value">bsd2rwdb5.tino.page</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Địa chỉ IP</div>
+                        <div class="info-value">103.142.26.68</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Trạng thái</div>
+                        <div class="info-value"><span class="badge">Đang chạy</span></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Phiên bản</div>
+                        <div class="info-value">latest</div>
+                    </div>
+                </div>
+
+                <a href="/dashboard.html" class="btn-main"><i class="fas fa-external-link-alt"></i> Mở Dashboard OpenClaw</a>
+
+                <div class="divider"></div>
+
+                <div style="margin-bottom: 24px;">
+                    <h3 style="font-size: 14px; font-weight: 700; color: #111; margin-bottom: 12px;">Gateway Token</h3>
+                    <div class="token-box">
+                        <div class="token-val">••••••••••••••••••••••••••••••••••••••</div>
+                        <div style="display:flex; gap: 12px; color: #6b7280; font-size: 16px; cursor: pointer;">
+                            <i class="far fa-copy"></i>
+                            <i class="far fa-eye"></i>
+                            <button class="btn-top primary" style="padding: 6px 12px; font-size: 12px;"><i class="fas fa-sync-alt" style="margin-right:4px;"></i> Tạo mới</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Check Auth
+        if (localStorage.getItem('netai_auth') !== 'true') {
+            window.location.href = '/index.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('netai_auth');
+            window.location.href = '/index.html';
+        }
+
+        // Integration with real Backend
+        async function loadPortalData() {
+            try {
+                const res = await fetch('/api/history');
+                const history = await res.json();
+                
+                if (Array.isArray(history) && history.length > 0) {
+                    // Update Status based on last severity
+                    const latest = history[0];
+                    const statusVal = document.querySelector('.info-item:nth-child(3) .info-value');
+                    if (latest.severity === 'critical') {
+                        statusVal.innerHTML = '<span class="badge" style="background:#fee2e2; color:#b91c1c;">Cảnh báo</span>';
+                    }
+
+                    // Add a "Recent Activity" list if we want, or just log to console for now
+                    console.log("Portal: History loaded", history.length, "items");
+                }
+
+                // Check devices status for "System Health"
+                const devRes = await fetch('/api/devices');
+                const devices = await devRes.json();
+                if (Array.isArray(devices)) {
+                    const downCount = devices.filter(d => d.status === 'down').length;
+                    if (downCount > 0) {
+                        showToast(`Cảnh báo: Có ${downCount} thiết bị đang gặp sự cố!`, 'warning');
+                    }
+                }
+
+            } catch(e) {
+                console.error("Portal: Error loading system data", e);
+            }
+        }
+
+        function showToast(msg, type = 'info') {
+            console.log(`[Portal Toast] ${type.toUpperCase()}: ${msg}`);
+            // Small temporary toast logic
+            const t = document.createElement('div');
+            t.style.cssText = `position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 10px 15px rgba(0,0,0,0.1); z-index:9999; font-size:14px; border-left:4px solid ${type==='warning'?'#f59e0b':'#10b981'}`;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', loadPortalData);
+    </script>
+</body>
+</html>

@@ -14,8 +14,8 @@ class AgentState(TypedDict):
     user_query: str
     
     # 2. Suy luận intent
-    # device_ip: IP trích xuất từ câu query (VD: '192.168.1.1'). Mặc định trống.
-    device_ip: str
+    # device_ips: Danh sách các IP trích xuất từ câu query (VD: ['192.168.1.1', '192.168.1.2']).
+    device_ips: List[str]
     # required_commands: Danh sách các lệnh show (VD: ["show vlan brief", "show logging"])
     required_commands: List[str]
     intent_summary: str
@@ -39,4 +39,7 @@ class AgentState(TypedDict):
     agent_logs: Annotated[List[str], append_messages]
     # Model AI ưa thích được chọn từ UI
     preferred_model: str
+    
+    # Bật chế độ giả lập không chạy SSH thật
+    simulation: bool
 

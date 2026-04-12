@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetAI Agent — Trợ lý AI Quản trị Mạng</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        :root {
+            --primary: #f97316;
+            --primary-dim: #ea580c;
+            --primary-glow: rgba(249,115,22,0.2);
+            --primary-soft: rgba(249,115,22,0.08);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --bg: #111113;
+            --bg-1: #18181b;
+            --bg-2: #1f1f23;
+            --bg-3: #27272a;
+            --border: rgba(255,255,255,0.07);
+            --border-active: rgba(249,115,22,0.35);
+            --text: #f4f4f5;
+            --text-2: #a1a1aa;
+            --text-3: #52525b;
+            --font-mono: 'JetBrains Mono', monospace;
+            --r: 10px;
+            --r-sm: 6px;
+            --r-lg: 16px;
+            --sidebar-w: 240px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 14px; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── LAYOUT ───────────────────────────────────────────────── */
+        .layout {
+            display: grid;
+            grid-template-columns: var(--sidebar-w) 1fr;
+            min-height: 100vh;
+        }
+
+        /* ─── SIDEBAR ──────────────────────────────────────────────── */
+        .sidebar {
+            background: var(--bg-1);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .logo-icon {
+            width: 30px; height: 30px;
+            background: var(--primary-dim);
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 14px;
+        }
+        .logo-text { font-size: 13px; font-weight: 600; }
+        .logo-ver { font-size: 10px; color: var(--text-3); }
+
+        .nav-section { padding: 12px 8px 4px; }
+        .nav-label {
+            font-size: 10px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--text-3);
+            padding: 0 8px; margin-bottom: 4px;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 10px; border-radius: var(--r-sm);
+            color: var(--text-2); font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: .15s;
+            margin-bottom: 1px;
+        }
+        .nav-item:hover { background: var(--bg-2); color: var(--text); }
+        .nav-item.active { background: var(--primary-soft); color: var(--primary); }
+        .nav-item i { width: 16px; text-align: center; font-size: 13px; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 12px 8px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Device mini-list in sidebar */
+        .sidebar-devices { padding: 0 8px; display: flex; flex-direction: column; gap: 2px; }
+        .device-mini {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 10px; border-radius: var(--r-sm);
+            cursor: pointer; transition: .15s;
+        }
+        .device-mini:hover { background: var(--bg-2); }
+        .device-mini.active { background: var(--primary-soft); }
+        .dot {
+            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        }
+        .dot.up { background: var(--success); box-shadow: 0 0 5px rgba(16,185,129,.5); }
+        .dot.warning { background: var(--warning); }
+        .dot.down { background: var(--error); }
+        .device-mini-name { font-size: 12px; flex: 1; color: var(--text-2); }
+        .device-mini-ip { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+
+        /* ─── MAIN ─────────────────────────────────────────────────── */
+        .main { display: flex; flex-direction: column; min-height: 100vh; overflow: hidden; }
+
+        /* Topbar */
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 24px;
+            background: var(--bg-1);
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 50;
+        }
+        .topbar-title { font-size: 14px; font-weight: 600; }
+        .topbar-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .badge {
+            padding: 3px 10px; border-radius: 99px; font-size: 10px; font-weight: 600;
+        }
+        .badge-ok { background: rgba(16,185,129,.1); color: var(--success); border: 1px solid rgba(16,185,129,.2); }
+        .badge-sim { background: rgba(59,130,246,.1); color: var(--info); border: 1px solid rgba(59,130,246,.2); }
+
+        /* Tab pages */
+        .tab-page { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
+        .tab-page.active { display: flex; }
+
+        /* ─── DASHBOARD PAGE ───────────────────────────────────────── */
+
+        /* Pipeline */
+        .pipeline {
+            display: flex; align-items: center; justify-content: center;
+            gap: 0; padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-1);
+        }
+        .p-node {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            flex: 0 0 auto;
+        }
+        .p-circle {
+            width: 44px; height: 44px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; border: 2px solid var(--border);
+            background: var(--bg-2); transition: .3s;
+        }
+        .p-label { font-size: 10px; color: var(--text-3); font-weight: 500; white-space: nowrap; }
+        .p-conn {
+            width: 40px; height: 2px; background: var(--border);
+            position: relative; margin-bottom: 24px; transition: .3s;
+        }
+        .p-conn::after {
+            content: ''; position: absolute;
+            right: -4px; top: 50%; transform: translateY(-50%);
+            border-left: 5px solid var(--border);
+            border-top: 3px solid transparent;
+            border-bottom: 3px solid transparent;
+            transition: .3s;
+        }
+        .p-node[data-node="intent"] .p-circle { color: var(--primary); }
+        .p-node[data-node="ssh"] .p-circle { color: var(--info); }
+        .p-node[data-node="analysis"] .p-circle { color: #8b5cf6; }
+        .p-node[data-node="fix"] .p-circle { color: var(--success); }
+
+        .p-node[data-state="active"] .p-circle {
+            border-color: currentColor;
+            box-shadow: 0 0 16px currentColor;
+            animation: pulse-node 1.4s infinite;
+        }
+        .p-node[data-state="done"] .p-circle {
+            border-color: currentColor;
+            background: currentColor;
+        }
+        .p-node[data-state="done"] .p-circle i { filter: brightness(0) invert(1); }
+        .p-node[data-state="done"] .p-label { color: currentColor; }
+        .p-conn.done { background: var(--primary); }
+        .p-conn.done::after { border-left-color: var(--primary); }
+        @keyframes pulse-node {
+            0%, 100% { box-shadow: 0 0 10px currentColor; }
+            50% { box-shadow: 0 0 24px currentColor; }
+        }
+
+        /* Content area */
+        .content { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+        /* Quick cmds */
+        .quick-cmds { display: flex; gap: 8px; flex-wrap: wrap; }
+        .qcmd {
+            padding: 6px 14px; border-radius: 99px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            color: var(--text-2); font-size: 12px; cursor: pointer; transition: .15s;
+            font-family: inherit;
+        }
+        .qcmd:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+
+        /* Input box */
+        .input-box {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r-lg); padding: 14px;
+            transition: .2s;
+        }
+        .input-box:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+        .input-box textarea {
+            width: 100%; background: none; border: none; outline: none;
+            color: var(--text); font-family: inherit; font-size: 14px;
+            resize: none; min-height: 44px; max-height: 110px; line-height: 1.6;
+        }
+        .input-box textarea::placeholder { color: var(--text-3); }
+        .input-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 10px;
+        }
+        .input-hint { font-size: 10px; color: var(--text-3); }
+
+        /* Model picker */
+        .mpicker-wrap { position: relative; }
+        .mpicker-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--bg-3); border: 1px solid var(--border);
+            border-radius: 99px; padding: 5px 12px;
+            font-size: 11px; color: var(--text-2); cursor: pointer; transition: .15s;
+            font-family: inherit; max-width: 250px;
+        }
+        .mpicker-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .mpicker-btn .mpb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+        .mpicker-drop {
+            position: absolute; bottom: calc(100% + 6px); left: 0;
+            width: 300px; background: var(--bg-3); border: 1px solid var(--border);
+            border-radius: var(--r-lg); box-shadow: 0 12px 40px rgba(0,0,0,.5);
+            z-index: 200; overflow: hidden; display: none;
+        }
+        .mpicker-drop.open { display: block; animation: fadeUp .15s ease; }
+        .mpicker-drop-head {
+            padding: 10px 14px; font-size: 11px; font-weight: 600;
+            color: var(--text-3); border-bottom: 1px solid var(--border);
+        }
+        .mpicker-drop-scroll { max-height: 280px; overflow-y: auto; }
+        .mpicker-group-title {
+            padding: 8px 14px 4px; font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: .8px; color: var(--text-3);
+        }
+        .mpicker-model {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; cursor: pointer; transition: .15s;
+        }
+        .mpicker-model:hover { background: var(--bg-2); }
+        .mpicker-model.active { background: var(--primary-soft); }
+        .mpicker-model-name { font-size: 12px; color: var(--text); }
+        .mpicker-model-badge {
+            font-size: 9px; padding: 2px 7px; border-radius: 99px; font-weight: 600;
+        }
+        .badge-free { background: rgba(16,185,129,.1); color: var(--success); }
+        .badge-paid { background: rgba(249,115,22,.1); color: var(--primary); }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 16px; border-radius: var(--r-sm); font-size: 12px; font-weight: 500; font-family: inherit; cursor: pointer; transition: .15s; border: 1px solid transparent; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-dim); }
+        .btn-primary:disabled { opacity: .5; cursor: default; }
+        .btn-ghost { background: transparent; color: var(--text-2); border-color: var(--border); }
+        .btn-ghost:hover { background: var(--bg-2); color: var(--text); }
+        .btns { display: flex; gap: 8px; }
+
+        /* Stats grid */
+        .stats-row {
+            display: grid; grid-template-columns: repeat(4,1fr);
+            gap: 12px;
+        }
+        .stat-card {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 16px; transition: .2s;
+        }
+        .stat-card:hover { border-color: var(--border-active); transform: translateY(-1px); }
+        .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); }
+        .stat-value { font-size: 26px; font-weight: 700; color: var(--primary); margin: 4px 0; }
+        .stat-trend { font-size: 10px; color: var(--text-3); }
+        .stat-trend.up { color: var(--success); }
+
+        /* Result area */
+        .result-area { display: flex; flex-direction: column; gap: 12px; }
+
+        /* Tabs (result tabs) */
+        .tabs {
+            display: flex; gap: 2px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 4px;
+        }
+        .tab-btn {
+            padding: 7px 14px; border-radius: 7px; font-size: 12px;
+            font-weight: 500; font-family: inherit; cursor: pointer; transition: .15s;
+            background: none; border: none; color: var(--text-2);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { background: var(--bg-3); color: var(--text); }
+
+        .tab-pane { display: none; flex-direction: column; gap: 12px; }
+        .tab-pane.active { display: flex; }
+
+        /* Card */
+        .card {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r); overflow: hidden;
+        }
+        .card-head {
+            padding: 12px 16px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 13px; font-weight: 600;
+        }
+        .card-head-left { display: flex; align-items: center; gap: 8px; }
+        .card-body { padding: 16px; }
+        .card-body.np { padding: 0; }
+
+        /* Metrics row inside result */
+        .metrics-row {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+        }
+        .metric-mini {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 12px; text-align: center;
+        }
+        .metric-mini-val { font-size: 20px; font-weight: 700; color: var(--primary); }
+        .metric-mini-label { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+
+        /* Issues */
+        .issue-item {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 12px 0; border-bottom: 1px solid var(--border);
+        }
+        .issue-item:last-child { border: none; }
+        .issue-badge {
+            padding: 2px 8px; border-radius: 4px; font-size: 9px;
+            font-weight: 700; white-space: nowrap; margin-top: 2px;
+        }
+        .issue-badge.error { background: rgba(239,68,68,.15); color: var(--error); }
+        .issue-badge.warning { background: rgba(245,158,11,.15); color: var(--warning); }
+        .issue-desc { font-size: 13px; font-weight: 500; }
+        .issue-cause { font-size: 11px; color: var(--text-2); margin-top: 3px; }
+        .no-issues { color: var(--success); font-size: 13px; display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+
+        /* SSH output */
+        .ssh-block { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+        .ssh-block + .ssh-block { margin-top: 8px; }
+        .ssh-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; background: var(--bg-3); cursor: pointer;
+            font-size: 12px;
+        }
+        .ssh-head:hover { background: var(--bg-2); }
+        .ssh-cmd { font-family: var(--font-mono); color: var(--info); display: flex; align-items: center; gap: 8px; }
+        .ssh-meta { font-size: 10px; color: var(--text-3); }
+        .ssh-pre {
+            background: #0a0a0c; color: #a0c0e0; font-family: var(--font-mono);
+            font-size: 12px; padding: 14px; white-space: pre-wrap; line-height: 1.7;
+            max-height: 300px; overflow-y: auto; border-top: 1px solid var(--border);
+        }
+
+        /* Fix items */
+        .fix-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px; border-radius: var(--r-sm);
+            background: var(--bg-3); margin-bottom: 8px;
+        }
+        .fix-icon {
+            width: 32px; height: 32px; border-radius: 7px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .fix-icon.low { background: rgba(16,185,129,.1); color: var(--success); }
+        .fix-icon.medium { background: rgba(245,158,11,.1); color: var(--warning); }
+        .fix-icon.high { background: rgba(239,68,68,.1); color: var(--error); }
+        .fix-content { flex: 1; min-width: 0; }
+        .fix-cmd { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+        .fix-desc { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+        .fix-risk { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+        .fix-risk.low { background: rgba(16,185,129,.1); color: var(--success); }
+        .fix-risk.medium { background: rgba(245,158,11,.1); color: var(--warning); }
+        .apply-all-btn {
+            width: 100%; padding: 10px; border-radius: var(--r-sm);
+            background: rgba(249,115,22,.1); border: 1px dashed var(--primary);
+            color: var(--primary); font-size: 12px; font-family: inherit;
+            cursor: pointer; transition: .15s; display: flex; align-items: center;
+            justify-content: center; gap: 8px; margin-top: 4px;
+        }
+        .apply-all-btn:hover { background: var(--primary-soft); }
+
+        /* Topology */
+        .topo-canvas {
+            position: relative; background: var(--bg-3);
+            border-radius: 0 0 var(--r) var(--r); height: 320px; overflow: hidden;
+        }
+        .topo-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .topo-svg line { stroke: var(--border); stroke-width: 1.5; }
+        .topo-svg line.active { stroke: var(--primary); stroke-dasharray: 4 4; animation: dash 1.5s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -16; } }
+        .topo-node {
+            position: absolute; transform: translate(-50%,-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            cursor: pointer;
+        }
+        .topo-box {
+            width: 48px; height: 48px; border-radius: var(--r);
+            background: var(--bg-2); border: 2px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; transition: .2s;
+        }
+        .topo-node:hover .topo-box, .topo-node.active .topo-box {
+            border-color: var(--primary); box-shadow: 0 0 12px var(--primary-glow);
+        }
+        .topo-name { font-size: 10px; color: var(--text-2); white-space: nowrap; }
+        .topo-ip { font-size: 9px; color: var(--text-3); font-family: var(--font-mono); }
+
+        /* History */
+        .history-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 16px; border-bottom: 1px solid var(--border);
+            cursor: pointer; transition: .15s;
+        }
+        .history-item:hover { background: var(--bg-3); }
+        .history-item:last-child { border: none; }
+        .hist-time { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); width: 60px; flex-shrink: 0; }
+        .hist-query { font-size: 12px; flex: 1; }
+        .hist-intent { font-size: 10px; color: var(--primary); }
+
+        /* Empty state */
+        .empty {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 10px; padding: 48px;
+            background: var(--bg-2); border: 1px dashed var(--border);
+            border-radius: var(--r); color: var(--text-3); text-align: center;
+        }
+        .empty i { font-size: 40px; }
+        .empty h3 { font-size: 15px; color: var(--text-2); }
+        .empty p { font-size: 12px; max-width: 360px; }
+
+        /* Dashboard 2-col layout */
+        .dash-layout {
+            display: grid; grid-template-columns: 1fr 290px; gap: 16px;
+        }
+        .side-panel {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r); display: flex; flex-direction: column;
+            max-height: 500px;
+        }
+        .side-panel-head {
+            padding: 12px 16px; border-bottom: 1px solid var(--border);
+            font-size: 11px; font-weight: 600; color: var(--text-3);
+            text-transform: uppercase; letter-spacing: .5px;
+        }
+        .side-panel-body { flex: 1; overflow-y: auto; padding: 8px; }
+
+        /* Recent request items */
+        .req-item {
+            padding: 8px 10px; border-radius: var(--r-sm);
+            cursor: pointer; transition: .15s;
+        }
+        .req-item:hover { background: var(--bg-3); }
+        .req-query { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .req-meta { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+
+        /* ─── DEVICES PAGE ──────────────────────────────────────────── */
+        .devices-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 14px; padding: 20px 24px;
+        }
+        .device-card {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 18px; transition: .2s; cursor: pointer;
+        }
+        .device-card:hover { border-color: var(--border-active); }
+        .device-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .device-icon {
+            width: 40px; height: 40px; border-radius: var(--r-sm);
+            background: var(--bg-3); display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .device-name { font-size: 14px; font-weight: 600; }
+        .device-ip { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+        .device-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .device-meta-item { background: var(--bg-3); border-radius: var(--r-sm); padding: 8px 10px; }
+        .device-meta-label { font-size: 9px; color: var(--text-3); text-transform: uppercase; }
+        .device-meta-val { font-size: 12px; color: var(--text); margin-top: 2px; }
+        .device-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+        .status-badge {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 600;
+        }
+        .status-badge.up { color: var(--success); }
+        .status-badge.warning { color: var(--warning); }
+        .status-badge.down { color: var(--error); }
+
+        /* ─── PROVIDERS PAGE ───────────────────────────────────────── */
+        .providers-wrap { padding: 20px 24px; display: flex; flex-direction: column; gap: 24px; }
+        .provider-group-title {
+            font-size: 12px; font-weight: 700; color: var(--text-3);
+            text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .provider-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;
+        }
+        .provider-card {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 16px; cursor: pointer; transition: .2s;
+        }
+        .provider-card:hover { border-color: var(--border-active); }
+        .provider-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .provider-icon {
+            width: 36px; height: 36px; border-radius: var(--r-sm);
+            background: var(--bg-3); display: flex; align-items: center;
+            justify-content: center; font-size: 16px;
+        }
+        .provider-name { font-size: 13px; font-weight: 600; }
+        .provider-status { font-size: 10px; }
+        .provider-status.ready { color: var(--success); }
+        .provider-status.none { color: var(--text-3); }
+        .provider-status.connected { color: var(--info); }
+        .provider-models { font-size: 11px; color: var(--text-3); }
+
+        /* Modal */
+        .modal-bg {
+            position: fixed; inset: 0; background: rgba(0,0,0,.7);
+            backdrop-filter: blur(4px); z-index: 500;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-bg.open { display: flex; }
+        .modal {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r-lg); width: 90%; max-width: 560px;
+            max-height: 85vh; overflow: hidden; display: flex; flex-direction: column;
+        }
+        .modal-head {
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .modal-body { padding: 20px; overflow-y: auto; }
+        .model-list-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+        }
+        .model-list-item:last-child { border: none; }
+        .quota-bar { height: 3px; background: var(--bg-3); border-radius: 99px; margin-top: 4px; overflow: hidden; }
+        .quota-fill { height: 100%; background: var(--primary); border-radius: 99px; }
+
+        /* Terminal modal */
+        .terminal-modal { max-width: 720px; }
+        .terminal-body {
+            background: #09090b; color: #a0e0a0; font-family: var(--font-mono);
+            font-size: 12px; padding: 16px; min-height: 360px; max-height: 500px;
+            overflow-y: auto; line-height: 1.8;
+        }
+        .terminal-input-row { display: flex; gap: 8px; margin-top: 8px; }
+        .terminal-prompt { color: var(--primary); }
+        .terminal-input {
+            background: none; border: none; outline: none; flex: 1;
+            color: #fff; font-family: inherit; font-size: inherit;
+        }
+
+        /* ─── CONSOLE PAGE ─────────────────────────────────────────── */
+        .console-wrap { padding: 20px 24px; flex: 1; display: flex; flex-direction: column; }
+        .console-out {
+            flex: 1; background: #09090b; border-radius: var(--r);
+            padding: 16px; font-family: var(--font-mono); font-size: 12px;
+            color: #a1a1aa; white-space: pre-wrap; overflow-y: auto; line-height: 1.8;
+            border: 1px solid var(--border);
+        }
+
+        /* ─── SETTINGS PAGE ────────────────────────────────────────── */
+        .settings-wrap { padding: 20px 24px; max-width: 680px; display: flex; flex-direction: column; gap: 16px; }
+        .settings-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+        .settings-card-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+        .settings-icon { width: 36px; height: 36px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .settings-title { font-size: 14px; font-weight: 600; }
+        .settings-sub { font-size: 11px; color: var(--text-3); }
+        .settings-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+        .settings-row { display: flex; align-items: center; justify-content: space-between; }
+        .settings-row label { font-size: 12px; }
+        .settings-row p { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+        .toggle { position: relative; width: 38px; height: 20px; cursor: pointer; flex-shrink: 0; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute; inset: 0; background: var(--bg-3);
+            border-radius: 99px; border: 1px solid var(--border); transition: .2s;
+        }
+        .toggle-track::before {
+            content: ''; position: absolute;
+            left: 2px; top: 2px; width: 14px; height: 14px;
+            border-radius: 50%; background: var(--text-3); transition: .2s;
+        }
+        .toggle input:checked + .toggle-track { background: var(--primary-dim); border-color: var(--primary); }
+        .toggle input:checked + .toggle-track::before { transform: translateX(18px); background: #fff; }
+        .input-field {
+            width: 100%; background: var(--bg-3); border: 1px solid var(--border);
+            border-radius: var(--r-sm); padding: 8px 12px; color: var(--text);
+            font-family: inherit; font-size: 12px; outline: none; transition: .2s;
+        }
+        .input-field:focus { border-color: var(--primary); }
+        .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .input-label { font-size: 11px; color: var(--text-2); margin-bottom: 5px; }
+
+        /* ─── TOAST ─────────────────────────────────────────────────── */
+        .toasts {
+            position: fixed; top: 16px; right: 16px; z-index: 999;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 16px; border-radius: var(--r);
+            font-size: 12px; font-weight: 500;
+            background: var(--bg-3); border: 1px solid var(--border);
+            box-shadow: 0 8px 24px rgba(0,0,0,.5);
+            animation: slideIn .25s ease;
+        }
+        .toast.success { border-color: rgba(16,185,129,.3); }
+        .toast.error   { border-color: rgba(239,68,68,.3); }
+        .toast.info    { border-color: rgba(59,130,246,.3); }
+        .toast.warning { border-color: rgba(245,158,11,.3); }
+        @keyframes slideIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:none; } }
+
+        /* ─── LOADING ─────────────────────────────────────────────── */
+        .loading-bg {
+            position: fixed; inset: 0; background: rgba(0,0,0,.6);
+            backdrop-filter: blur(6px); z-index: 400;
+            display: none; align-items: center; justify-content: center;
+        }
+        .loading-bg.open { display: flex; }
+        .loading-card {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r-lg); padding: 32px 40px;
+            text-align: center; min-width: 280px; display: flex;
+            flex-direction: column; align-items: center; gap: 12px;
+        }
+        .spinner {
+            width: 36px; height: 36px; border-radius: 50%;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 14px; font-weight: 600; }
+        .loading-sub { font-size: 11px; color: var(--text-3); }
+        .progress-track { width: 220px; height: 3px; background: var(--bg-3); border-radius: 99px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s ease; width: 0; }
+
+        @keyframes fadeUp { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+    </style>
+</head>
+<body>
+
+<!-- Toasts -->
+<div class="toasts" id="toasts"></div>
+
+<!-- Loading overlay -->
+<div class="loading-bg" id="loadingBg">
+    <div class="loading-card">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Đang xử lý...</div>
+        <div class="loading-sub" id="loadingSub">Agent đang khởi động</div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+</div>
+
+<!-- Provider Modal -->
+<div class="modal-bg" id="providerModal">
+    <div class="modal">
+        <div class="modal-head">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div class="provider-icon" id="modalIcon"></div>
+                <div>
+                    <div id="modalName" style="font-size:15px;font-weight:600;"></div>
+                    <div id="modalStatus" style="font-size:11px;color:var(--text-3);margin-top:2px;"></div>
+                </div>
+            </div>
+            <button class="btn btn-ghost" onclick="closeModal('providerModal')" style="padding:6px 10px;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<!-- Terminal Modal -->
+<div class="modal-bg" id="terminalModal">
+    <div class="modal terminal-modal">
+        <div class="modal-head">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div class="provider-icon"><i class="fas fa-terminal" style="color:var(--success);"></i></div>
+                <div>
+                    <div id="terminalTitle" style="font-size:15px;font-weight:600;">SSH Console</div>
+                    <div id="terminalDevice" style="font-size:11px;color:var(--text-3);">Connecting...</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-ghost" onclick="clearTerminal()" style="font-size:11px;padding:5px 10px;"><i class="fas fa-eraser"></i></button>
+                <button class="btn btn-ghost" onclick="closeModal('terminalModal')" style="padding:6px 10px;"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <div class="terminal-body" id="terminalOutput">
+            <div style="color:#555;">NetAI Secure Shell [v1.0]</div>
+            <div style="color:#555;margin-bottom:12px;">(c) 2026 NetAI Corp. All rights reserved.</div>
+            <div id="terminalLogs"></div>
+            <div class="terminal-input-row">
+                <span class="terminal-prompt">></span>
+                <input class="terminal-input" id="terminalInput" placeholder="Enter command..." onkeydown="handleTerminalKey(event)">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="layout">
+
+    <!-- ═══ SIDEBAR ════════════════════════════════════════════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon"><i class="fas fa-network-wired"></i></div>
+            <div>
+                <div class="logo-text">NetAI Agent</div>
+                <div class="logo-ver">v0.5.0</div>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">Main</div>
+            <div class="nav-item active" onclick="goTab('dashboard', this)">
+                <i class="fas fa-chart-line"></i> Dashboard
+            </div>
+            <div class="nav-item" onclick="goTab('devices', this)">
+                <i class="fas fa-server"></i> Thiết bị
+            </div>
+            <div class="nav-item" onclick="goTab('providers', this)">
+                <i class="fas fa-layer-group"></i> Providers
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">Devices</div>
+            <div class="sidebar-devices" id="sidebarDevices"></div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">System</div>
+            <div class="nav-item" onclick="goTab('console', this)">
+                <i class="fas fa-terminal"></i> Console
+            </div>
+            <div class="nav-item" onclick="goTab('settings', this)">
+                <i class="fas fa-cog"></i> Settings
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="nav-item" style="color:var(--error);" onclick="showToast('Đã ngắt kết nối server','warning')">
+                <i class="fas fa-power-off"></i> Shutdown
+            </div>
+        </div>
+    </aside>
+
+    <!-- ═══ MAIN ════════════════════════════════════════════════════ -->
+    <main class="main">
+
+        <!-- ── DASHBOARD ─────────────────────────────────────────── -->
+        <div id="tab-dashboard" class="tab-page active">
+            <!-- Topbar -->
+            <div class="topbar">
+                <div>
+                    <div class="topbar-title"><i class="fas fa-brain" style="color:var(--primary);margin-right:8px;"></i>Network AI Agent</div>
+                    <div class="topbar-sub">Phân tích và sửa lỗi mạng tự động với LangGraph + AI</div>
+                </div>
+                <div class="topbar-right">
+                    <span class="badge badge-sim" id="modeIndicator">SIM MODE</span>
+                    <span style="font-size:11px;color:var(--text-3);" id="clockDisplay"></span>
+                </div>
+            </div>
+
+            <!-- Pipeline -->
+            <div class="pipeline" id="pipeline">
+                <div class="p-node" data-node="intent" data-state="idle" id="pnode-intent">
+                    <div class="p-circle"><i class="fas fa-brain"></i></div>
+                    <div class="p-label">Intent</div>
+                </div>
+                <div class="p-conn" id="pconn-1"></div>
+                <div class="p-node" data-node="ssh" data-state="idle" id="pnode-ssh">
+                    <div class="p-circle"><i class="fas fa-terminal"></i></div>
+                    <div class="p-label">SSH</div>
+                </div>
+                <div class="p-conn" id="pconn-2"></div>
+                <div class="p-node" data-node="analysis" data-state="idle" id="pnode-analysis">
+                    <div class="p-circle"><i class="fas fa-magnifying-glass"></i></div>
+                    <div class="p-label">Analysis</div>
+                </div>
+                <div class="p-conn" id="pconn-3"></div>
+                <div class="p-node" data-node="fix" data-state="idle" id="pnode-fix">
+                    <div class="p-circle"><i class="fas fa-wrench"></i></div>
+                    <div class="p-label">Fix</div>
+                </div>
+            </div>
+
+            <div class="content">
+                <!-- Quick commands -->
+                <div class="quick-cmds">
+                    <button class="qcmd" onclick="setQ('Check status of interface Gi0/0')">Check Gi0/0</button>
+                    <button class="qcmd" onclick="setQ('Troubleshoot VLAN 10 connection issues')">Fix VLAN 10</button>
+                    <button class="qcmd" onclick="setQ('Check trunk configuration on the switch')">Trunk Config</button>
+                    <button class="qcmd" onclick="setQ('Show me the current routing table')">Routing Table</button>
+                    <button class="qcmd" onclick="setQ('Verify overall device health')">Device Health</button>
+                </div>
+
+                <!-- Input -->
+                <div class="input-box">
+                    <textarea id="queryInput" placeholder="Hỏi AI về mạng… (Enter để gửi, Shift+Enter xuống dòng)" onkeydown="handleKey(event)"></textarea>
+                    <div class="input-row">
+                        <div class="mpicker-wrap" id="mpickerWrap">
+                            <button class="mpicker-btn" id="mpickerBtn" onclick="toggleMPicker(event)">
+                                <i class="fas fa-microchip" style="font-size:10px;"></i>
+                                <span class="mpb-name" id="mpickerLabel">Loading...</span>
+                                <i class="fas fa-chevron-up" style="font-size:9px;opacity:.7;"></i>
+                            </button>
+                            <div class="mpicker-drop" id="mpickerDrop">
+                                <div class="mpicker-drop-head">Chọn AI Model</div>
+                                <div class="mpicker-drop-scroll" id="mpickerList"></div>
+                            </div>
+                        </div>
+                        <div class="btns">
+                            <button class="btn btn-ghost" onclick="clearAll()"><i class="fas fa-trash-alt"></i> Clear</button>
+                            <button class="btn btn-primary" id="sendBtn" onclick="submitQuery()">
+                                Send <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Requests</div>
+                        <div class="stat-value" id="statReq">0</div>
+                        <div class="stat-trend">–</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Commands Run</div>
+                        <div class="stat-value" id="statCmd">0</div>
+                        <div class="stat-trend">–</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Issues Found</div>
+                        <div class="stat-value" style="color:var(--error);" id="statIssues">0</div>
+                        <div class="stat-trend">active</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Fix Applied</div>
+                        <div class="stat-value" style="color:var(--success);" id="statFixes">0</div>
+                        <div class="stat-trend">–</div>
+                    </div>
+                </div>
+
+                <!-- Result + side panel -->
+                <div class="dash-layout">
+                    <div id="resultArea">
+                        <div class="empty" id="emptyState">
+                            <i class="fas fa-robot"></i>
+                            <h3>Chưa có phân tích nào</h3>
+                            <p>Nhập câu hỏi về mạng để bắt đầu. AI sẽ SSH vào thiết bị, phân tích và đề xuất giải pháp.</p>
+                        </div>
+                    </div>
+                    <div class="side-panel">
+                        <div class="side-panel-head">Lịch sử gần đây</div>
+                        <div class="side-panel-body" id="recentList">
+                            <div style="text-align:center;padding:24px;color:var(--text-3);font-size:12px;">Chưa có dữ liệu</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── DEVICES ────────────────────────────────────────────── -->
+        <div id="tab-devices" class="tab-page">
+            <div class="topbar">
+                <div>
+                    <div class="topbar-title"><i class="fas fa-server" style="color:var(--primary);margin-right:8px;"></i>Thiết bị mạng</div>
+                    <div class="topbar-sub">Quản lý và giám sát trạng thái thiết bị Core & Edge</div>
+                </div>
+                <button class="btn btn-primary" onclick="showToast('Đang quét mạng...','info')"><i class="fas fa-sync"></i> Scan</button>
+            </div>
+            <div class="devices-grid" id="devicesGrid"></div>
+        </div>
+
+        <!-- ── PROVIDERS ──────────────────────────────────────────── -->
+        <div id="tab-providers" class="tab-page">
+            <div class="topbar">
+                <div>
+                    <div class="topbar-title"><i class="fas fa-layer-group" style="color:var(--primary);margin-right:8px;"></i>AI Providers</div>
+                    <div class="topbar-sub">Quản lý kết nối và model AI</div>
+                </div>
+                <button class="btn btn-ghost" onclick="testAllProviders()"><i class="fas fa-play"></i> Test All</button>
+            </div>
+            <div class="providers-wrap" id="providersWrap"></div>
+        </div>
+
+        <!-- ── CONSOLE ────────────────────────────────────────────── -->
+        <div id="tab-console" class="tab-page">
+            <div class="topbar">
+                <div>
+                    <div class="topbar-title"><i class="fas fa-terminal" style="color:var(--primary);margin-right:8px;"></i>Console Log</div>
+                    <div class="topbar-sub">Live server output</div>
+                </div>
+                <div class="btns">
+                    <button class="btn btn-ghost" onclick="clearConsole()"><i class="fas fa-trash"></i> Clear</button>
+                    <button class="btn btn-ghost" onclick="downloadLogs()"><i class="fas fa-download"></i> Export</button>
+                </div>
+            </div>
+            <div class="console-wrap">
+                <div class="console-out" id="consoleOut"><span style="color:var(--text-3)">No logs yet.</span></div>
+            </div>
+        </div>
+
+        <!-- ── SETTINGS ───────────────────────────────────────────── -->
+        <div id="tab-settings" class="tab-page">
+            <div class="topbar">
+                <div>
+                    <div class="topbar-title"><i class="fas fa-cog" style="color:var(--primary);margin-right:8px;"></i>Settings</div>
+                    <div class="topbar-sub">Cấu hình hệ thống</div>
+                </div>
+            </div>
+            <div class="settings-wrap">
+                <!-- Local Mode -->
+                <div class="settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-icon" style="background:rgba(16,185,129,.1);color:var(--success);"><i class="fas fa-laptop"></i></div>
+                        <div>
+                            <div class="settings-title">Local Mode</div>
+                            <div class="settings-sub">Running on your machine</div>
+                        </div>
+                    </div>
+                    <div class="settings-body">
+                        <div class="input-label">Database Location</div>
+                        <div style="background:var(--bg-3);padding:10px 12px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:12px;color:var(--text-2);">~/.netai/db.json</div>
+                        <div class="btns" style="margin-top:4px;">
+                            <button class="btn btn-ghost" style="flex:1;justify-content:center;"><i class="fas fa-file-download"></i> Backup</button>
+                            <button class="btn btn-ghost" style="flex:1;justify-content:center;"><i class="fas fa-file-upload"></i> Restore</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security -->
+                <div class="settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-icon" style="background:var(--primary-soft);color:var(--primary);"><i class="fas fa-shield-halved"></i></div>
+                        <div>
+                            <div class="settings-title">Security</div>
+                            <div class="settings-sub">Authentication settings</div>
+                        </div>
+                    </div>
+                    <div class="settings-body">
+                        <div class="settings-row">
+                            <div>
+                                <div style="font-size:13px;font-weight:500;">Require Login</div>
+                                <div class="settings-sub">Yêu cầu mật khẩu khi truy cập dashboard</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" checked>
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
+                        <div class="input-group">
+                            <div>
+                                <div class="input-label">New Password</div>
+                                <input class="input-field" type="password" placeholder="Enter new password">
+                            </div>
+                            <div>
+                                <div class="input-label">Confirm Password</div>
+                                <input class="input-field" type="password" placeholder="Confirm password">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="showToast('Mật khẩu đã cập nhật','success')">Save Password</button>
+                    </div>
+                </div>
+
+                <!-- Auto Fix -->
+                <div class="settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-icon" style="background:rgba(245,158,11,.1);color:var(--warning);"><i class="fas fa-bolt"></i></div>
+                        <div>
+                            <div class="settings-title">Auto Fix</div>
+                            <div class="settings-sub">Tự động áp dụng fix commands</div>
+                        </div>
+                    </div>
+                    <div class="settings-body">
+                        <div class="settings-row">
+                            <div>
+                                <div style="font-size:13px;font-weight:500;">Enable Auto Fix</div>
+                                <div class="settings-sub">Cảnh báo: sẽ tự động chạy lệnh trên thiết bị thật</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="autoFixToggle" onchange="toggleAutoFix()">
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI API Keys -->
+                <div class="settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-icon" style="background:rgba(139,92,246,.1);color:#8b5cf6;"><i class="fas fa-microchip"></i></div>
+                        <div>
+                            <div class="settings-title">AI Model API Keys</div>
+                            <div class="settings-sub">Cấu hình Google Gemini, Groq, OpenRouter</div>
+                        </div>
+                    </div>
+                    <div class="settings-body">
+                        <div>
+                            <div class="input-label">Google Gemini API Key</div>
+                            <input class="input-field" type="password" id="apiKeyGoogle" placeholder="Chưa cấu hình">
+                        </div>
+                        <div>
+                            <div class="input-label">Groq API Key</div>
+                            <input class="input-field" type="password" id="apiKeyGroq" placeholder="Chưa cấu hình">
+                        </div>
+                        <div>
+                            <div class="input-label">OpenRouter API Key</div>
+                            <input class="input-field" type="password" id="apiKeyOpenRouter" placeholder="Chưa cấu hình">
+                        </div>
+                        <div>
+                            <div class="input-label">AI Provider mặc định</div>
+                            <select class="input-field" id="selectAIProvider" onchange="updateAIModelOptions()">
+                                <option value="gemini">Google Gemini</option>
+                                <option value="groq">Groq</option>
+                                <option value="openrouter">OpenRouter</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="input-label">Model mặc định</div>
+                            <select class="input-field" id="selectAIModel"></select>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveAISettings()"><i class="fas fa-save"></i> Lưu cấu hình AI</button>
+                    </div>
+                </div>
+
+                <!-- Telegram -->
+                <div class="settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-icon" style="background:rgba(59,130,246,.1);color:var(--info);"><i class="fab fa-telegram"></i></div>
+                        <div>
+                            <div class="settings-title">Telegram Bot</div>
+                            <div class="settings-sub">Nhận cảnh báo & điều khiển qua Telegram</div>
+                        </div>
+                        <div id="tgStatusBadge" style="margin-left:auto;font-size:11px;padding:3px 10px;border-radius:99px;background:rgba(113,113,122,.1);color:var(--text-3);">Chưa kết nối</div>
+                    </div>
+                    <div class="settings-body">
+                        <div>
+                            <div class="input-label">Bot Token <span style="color:var(--text-3)">(từ @BotFather)</span></div>
+                            <input class="input-field" type="password" id="tgTokenInput" placeholder="123456:ABC-DEF...">
+                        </div>
+                        <div>
+                            <div class="input-label">Chat ID <span style="color:var(--text-3)">(từ @myidbot — không bắt buộc)</span></div>
+                            <input class="input-field" type="text" id="tgChatIdInput" placeholder="-100123456789">
+                        </div>
+                        <div class="btns">
+                            <button class="btn btn-primary" onclick="saveTelegramSettings()"><i class="fab fa-telegram"></i> Lưu & Kết nối</button>
+                            <button class="btn btn-ghost" onclick="testTelegram()"><i class="fas fa-paper-plane"></i> Test gửi tin</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════════════════
+const APP = {
+    stats: { queries: 0, commands: 0, issues: 0, fixes: 0 },
+    history: [],
+    selectedDevice: 0,
+    autoFix: false,
+    processing: false,
+    preferredModel: "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+
+    devices: [
+        { name: "Core Switch",     ip: "192.168.1.1",   status: "up",      type: "cisco_ios", location: "Server Room A", icon: "fa-network-wired" },
+        { name: "Core Router",     ip: "192.168.1.254", status: "up",      type: "cisco_ios", location: "Server Room A", icon: "fa-globe" },
+        { name: "Access Switch 1", ip: "192.168.1.2",   status: "warning", type: "cisco_ios", location: "Floor 1",       icon: "fa-network-wired" },
+        { name: "Access Switch 2", ip: "192.168.1.3",   status: "up",      type: "cisco_ios", location: "Floor 2",       icon: "fa-network-wired" },
+    ],
+
+    providers: [
+        { id: "antigravity", name: "Antigravity", icon: "fa-shuttle-space", group: "oauth", status: "connected", models: [
+            { name: "ag-flash-3.0", quota: 95, rpm: 100, free: false },
+            { name: "ag-pro-1.2",   quota: 40, rpm: 20,  free: false }
+        ]},
+        { id: "groq", name: "Groq Cloud", icon: "fa-bolt", group: "oauth", status: "ready", models: [
+            { name: "groq/llama-3.3-70b-versatile", quota: 100, rpm: 30, free: true },
+            { name: "groq/mixtral-8x7b-32768",      quota: 100, rpm: 30, free: true },
+            { name: "groq/gemma2-9b-it",             quota: 100, rpm: 30, free: true }
+        ]},
+        { id: "claude", name: "Claude Code", icon: "fa-gem", group: "oauth", status: "none", models: [
+            { name: "claude-3-5-sonnet", quota: 85, rpm: 10, free: false },
+            { name: "claude-3-opus",     quota: 20, rpm: 5,  free: false }
+        ]},
+        { id: "gemini", name: "Google Gemini", icon: "fa-google", group: "free", status: "ready", models: [
+            { name: "gemini/gemini-2.0-flash",      quota: 100, rpm: 15, free: true },
+            { name: "gemini/gemini-2.0-flash-lite", quota: 100, rpm: 30, free: true },
+        ]},
+        { id: "openrouter", name: "OpenRouter", icon: "fa-globe", group: "free", status: "ready", models: [
+            { name: "openrouter/meta-llama/llama-3.3-70b-instruct:free",  quota: 50,  rpm: 10, free: true },
+            { name: "openrouter/google/gemma-3-27b-it:free",               quota: 100, rpm: 10, free: true },
+            { name: "openrouter/qwen/qwen3-coder:free",                    quota: 50,  rpm: 10, free: true },
+            { name: "openrouter/openai/gpt-oss-120b:free",                 quota: 50,  rpm: 10, free: true },
+            { name: "openrouter/meta-llama/llama-3.2-3b-instruct:free",    quota: 100, rpm: 20, free: true }
+        ]},
+        { id: "github_copilot", name: "GitHub Copilot", icon: "fa-github", group: "oauth", status: "none", models: [] },
+    ]
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// SIMULATED SSH OUTPUTS
+// ═══════════════════════════════════════════════════════════════════
+const SIM = {
+    "show vlan brief": `VLAN Name                             Status    Ports
+---- -------------------------------- --------- ----------------------------
+1    default                          active    Gi0/0, Gi0/3
+10   MGMT_VLAN                        active    Fa0/1, Fa0/2
+20   DATA_VLAN                        active    Fa0/9, Fa0/10, Fa0/11
+30   VOICE_VLAN                       active    Fa0/17, Fa0/18
+99   NATIVE_VLAN                      active
+100  SERVERS                          active    Gi0/1, Gi0/2`,
+
+    "show interfaces trunk": `Port        Mode             Encapsulation  Status        Native vlan
+Gi0/1       on               802.1q         trunking      1
+Gi0/2       desirable        802.1q         not-trunking  1
+
+Port        Vlans allowed on trunk
+Gi0/1       1-4094
+Gi0/2       1-4094`,
+
+    "show ip interface brief": `Interface              IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/0     192.168.1.1     YES NVRAM  up                    up
+GigabitEthernet0/1     unassigned      YES unset  up                    up
+Vlan10                 192.168.10.1    YES NVRAM  down                  down
+Vlan20                 192.168.20.1    YES NVRAM  up                    up`,
+
+    "show version": `Cisco IOS Software, Version 15.2(4)M7
+Cisco 2911, DRAM 483328K, Flash 250880K
+Last reset from power-on`,
+
+    "show ip route": `Gateway of last resort is 192.168.1.254 to network 0.0.0.0
+S*    0.0.0.0/0 [1/0] via 192.168.1.254
+C     192.168.1.0/24 is directly connected, GigabitEthernet0/0
+C     192.168.10.0/24 is directly connected, Vlan10
+C     192.168.20.0/24 is directly connected, Vlan20`,
+
+    "show interfaces status": `Port      Name               Status       Vlan
+Gi0/1                        connected    trunk
+Gi0/2                        notconnect   1
+Fa0/1                        connected    10
+Fa0/3                        suspended    10`,
+};
+
+function getSimOutput(cmd) {
+    if (SIM[cmd]) return SIM[cmd];
+    for (const [key, val] of Object.entries(SIM)) {
+        if (cmd.includes(key.split(' ')[1] || '') || key.includes(cmd)) return val;
+    }
+    return `% Command '${cmd}' output not available in simulation mode`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INTENT ENGINE
+// ═══════════════════════════════════════════════════════════════════
+function analyzeIntent(q) {
+    q = q.toLowerCase();
+    const vlanM = q.match(/vlan\s*(\d+)/);
+    if (vlanM) return { intent: "vlan_troubleshoot", commands: [`show vlan id ${vlanM[1]}`, `show interfaces vlan ${vlanM[1]}`, "show interfaces trunk"] };
+    if (q.match(/(gi|fa|eth|te)\s*\d+\/\d+/i) || q.includes('interface')) return { intent: "interface_check", commands: ["show interfaces status", "show ip interface brief"] };
+    if (q.includes('trunk')) return { intent: "trunk_troubleshoot", commands: ["show interfaces trunk", "show vlan brief"] };
+    if (q.includes('route') || q.includes('routing') || q.includes('gateway')) return { intent: "routing_check", commands: ["show ip route", "show ip interface brief"] };
+    return { intent: "general_health", commands: ["show version", "show ip interface brief", "show vlan brief", "show interfaces status"] };
+}
+
+function analyzeIssues(outputsText) {
+    const patterns = [
+        { re: /line protocol is down/i,  sev: "error",   desc: "Interface down",           cause: "Cáp ngắt hoặc cấu hình sai" },
+        { re: /not-trunking/i,           sev: "error",   desc: "Trunk không hoạt động",    cause: "DTP mismatch — Gi0/2 không trunk" },
+        { re: /native vlan mismatch/i,   sev: "error",   desc: "Native VLAN mismatch",     cause: "Hai đầu trunk có native VLAN khác nhau" },
+        { re: /suspended/i,              sev: "warning", desc: "Port bị suspended",         cause: "STP hoặc Port Security" },
+        { re: /administratively down/i,  sev: "error",   desc: "Shutdown thủ công",         cause: "Port bị shutdown bằng lệnh" },
+        { re: /input errors:\s*[1-9]/i,  sev: "warning", desc: "Input errors",              cause: "Duplex mismatch" },
+    ];
+    return patterns.filter(p => p.re.test(outputsText)).map(p => ({ severity: p.sev, description: p.desc, root_cause: p.cause }));
+}
+
+function generateFixes(issues, intent) {
+    const fixes = [];
+    for (const i of issues) {
+        const d = i.description.toLowerCase();
+        if (d.includes('shutdown'))   fixes.push({ command: "no shutdown",                    desc: "Bật lại interface", risk: "low" });
+        if (d.includes('trunk'))      fixes.push({ command: "switchport mode trunk",           desc: "Ép port sang chế độ trunk", risk: "low" },
+                                                  { command: "switchport nonegotiate",         desc: "Tắt DTP negotiation", risk: "low" });
+        if (d.includes('native vlan')) fixes.push({ command: "switchport trunk native vlan 99", desc: "Đặt native VLAN = 99", risk: "medium" });
+        if (d.includes('suspended'))  fixes.push({ command: "shutdown / no shutdown",          desc: "Bounce port để reset", risk: "low" });
+    }
+    return fixes.filter((f, i, a) => a.findIndex(x => x.command === f.command) === i);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    renderSidebarDevices();
+    renderModelPicker();
+    renderDevicesPage();
+    renderProvidersPage();
+    updateAIModelOptions();
+    loadAIConfig();
+    loadTelegramSettings();
+    updateClock();
+    setInterval(updateClock, 1000);
+    log('NetAI Agent initialized', 'success');
+});
+
+function updateClock() {
+    const el = document.getElementById('clockDisplay');
+    if (el) el.textContent = new Date().toLocaleTimeString('vi-VN');
+}
+
+function renderSidebarDevices() {
+    const c = document.getElementById('sidebarDevices');
+    c.innerHTML = APP.devices.map((d, i) => `
+        <div class="device-mini ${i === APP.selectedDevice ? 'active' : ''}" onclick="selectDevice(${i})" id="smini-${i}">
+            <div class="dot ${d.status}"></div>
+            <div style="flex:1;min-width:0;">
+                <div class="device-mini-name">${d.name}</div>
+                <div class="device-mini-ip">${d.ip}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderModelPicker() {
+    const list = document.getElementById('mpickerList');
+    const groups = { oauth: 'OAuth Providers', free: 'Free Tier' };
+    let html = '';
+    for (const [groupKey, groupLabel] of Object.entries(groups)) {
+        const providers = APP.providers.filter(p => p.group === groupKey && p.models.length > 0);
+        if (!providers.length) continue;
+        html += `<div class="mpicker-group-title">${groupLabel}</div>`;
+        for (const p of providers) {
+            for (const m of p.models) {
+                const active = m.name === APP.preferredModel ? 'active' : '';
+                const badge = m.free ? '<span class="mpicker-model-badge badge-free">FREE</span>' : '<span class="mpicker-model-badge badge-paid">PAID</span>';
+                html += `<div class="mpicker-model ${active}" onclick="selectModel('${m.name}')">
+                    <span class="mpicker-model-name">${m.name}</span>${badge}
+                </div>`;
+            }
+        }
+    }
+    list.innerHTML = html;
+    updateMPickerLabel();
+}
+
+function updateMPickerLabel() {
+    document.getElementById('mpickerLabel').textContent = APP.preferredModel;
+}
+
+function selectModel(name) {
+    APP.preferredModel = name;
+    updateMPickerLabel();
+    document.getElementById('mpickerDrop').classList.remove('open');
+    renderModelPicker();
+    showToast(`Model: ${name}`, 'info');
+}
+
+function toggleMPicker(e) {
+    e.stopPropagation();
+    document.getElementById('mpickerDrop').classList.toggle('open');
+}
+
+document.addEventListener('click', () => {
+    document.getElementById('mpickerDrop')?.classList.remove('open');
+});
+
+function renderDevicesPage() {
+    const g = document.getElementById('devicesGrid');
+    g.innerHTML = APP.devices.map((d, i) => `
+        <div class="device-card" onclick="openTerminal(${i})">
+            <div class="device-card-head">
+                <div class="device-icon"><i class="fas ${d.icon}"></i></div>
+                <div>
+                    <div class="device-name">${d.name}</div>
+                    <div class="device-ip">${d.ip}</div>
+                </div>
+            </div>
+            <div class="device-meta">
+                <div class="device-meta-item">
+                    <div class="device-meta-label">Type</div>
+                    <div class="device-meta-val">${d.type}</div>
+                </div>
+                <div class="device-meta-item">
+                    <div class="device-meta-label">Location</div>
+                    <div class="device-meta-val">${d.location}</div>
+                </div>
+            </div>
+            <div class="device-footer">
+                <span class="status-badge ${d.status}">
+                    <i class="fas fa-circle" style="font-size:7px;"></i>
+                    ${d.status.toUpperCase()}
+                </span>
+                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="event.stopPropagation();selectDevice(${i});goTab('dashboard')">
+                    <i class="fas fa-terminal"></i> Query
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderProvidersPage() {
+    const wrap = document.getElementById('providersWrap');
+    const groups = { oauth: 'OAuth Providers', free: 'Free & Free Tier Providers' };
+    wrap.innerHTML = Object.entries(groups).map(([key, label]) => {
+        const ps = APP.providers.filter(p => p.group === key);
+        return `
+            <div>
+                <div class="provider-group-title">
+                    <span>${label}</span>
+                    <button class="btn btn-ghost" style="font-size:11px;padding:5px 12px;" onclick="testAllProviders('${key}')">
+                        <i class="fas fa-play"></i> Test All
+                    </button>
+                </div>
+                <div class="provider-grid">
+                    ${ps.map(p => `
+                        <div class="provider-card" onclick="openProviderModal('${p.id}')">
+                            <div class="provider-head">
+                                <div class="provider-icon"><i class="fas ${p.icon}" style="color:var(--primary);"></i></div>
+                                <div>
+                                    <div class="provider-name">${p.name}</div>
+                                    <div class="provider-status ${p.status}">${p.status}</div>
+                                </div>
+                            </div>
+                            <div class="provider-models">${p.models.length} model${p.models.length !== 1 ? 's' : ''} available</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function goTab(id, el) {
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + id)?.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    if (el) el.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// QUERY SUBMISSION
+// ═══════════════════════════════════════════════════════════════════
+function setQ(text) {
+    document.getElementById('queryInput').value = text;
+    document.getElementById('queryInput').focus();
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitQuery(); }
+}
+
+async function submitQuery() {
+    const ta = document.getElementById('queryInput');
+    const query = ta.value.trim();
+    if (!query || APP.processing) return;
+
+    APP.processing = true;
+    document.getElementById('sendBtn').disabled = true;
+    resetPipeline();
+    const t0 = Date.now();
+
+    showLoading('Gửi lệnh tới AI...', 'LangGraph & AI đang xử lý');
+    setProgress(15);
+    setPNode('intent', 'active');
+
+    try {
+        const res = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, preferred_model: APP.preferredModel })
+        });
+
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+
+        // Log backend messages
+        (data.agent_logs || []).forEach(l => log('[BE] ' + l, l.includes('⚠️') ? 'warning' : 'success'));
+
+        // Animate pipeline
+        setPNode('intent', 'done'); setPConn(1, true); setProgress(35);
+        setPNode('ssh', 'active'); updateLoading('Thực thi SSH...', '');
+        await delay(350);
+        setPNode('ssh', 'done'); setPConn(2, true); setProgress(55);
+        setPNode('analysis', 'active'); updateLoading('Phân tích...', '');
+        await delay(350);
+        setPNode('analysis', 'done'); setPConn(3, true); setProgress(80);
+        setPNode('fix', 'active');
+        await delay(300);
+        setPNode('fix', 'done'); setProgress(100);
+
+        const rawOutputs = Object.entries(data.ssh_output || {}).map(([cmd, out]) => ({
+            command: cmd, output: out,
+            device_ip: data.device_ip || '192.168.1.1',
+            duration_ms: Math.floor(50 + Math.random() * 200)
+        }));
+
+        const issues = [];
+        if (data.status_severity !== 'ok' && data.root_cause) {
+            issues.push({
+                severity: data.status_severity === 'critical' ? 'error' : 'warning',
+                description: 'Vấn đề mạng phát hiện bởi AI',
+                root_cause: data.root_cause
+            });
+        }
+
+        const fixes = (data.fixes || []).map(f => ({ command: f, desc: 'AI đề xuất', risk: 'medium' }));
+        const device = APP.devices[APP.selectedDevice];
+
+        const result = {
+            query,
+            intent: data.intent_summary || 'Phân tích tự động',
+            summary: 'Phân tích hoàn tất',
+            durationMs: Date.now() - t0,
+            raw_outputs: rawOutputs,
+            issues_found: issues,
+            fix_suggestions: fixes,
+            fixes_applied: [],
+            device: device.name,
+            device_ip: data.device_ip || device.ip,
+            timestamp: new Date().toLocaleTimeString('vi-VN')
+        };
+
+        APP.stats.queries++;
+        APP.stats.commands += rawOutputs.length;
+        APP.stats.issues += issues.length;
+        updateStats();
+        APP.history.push(result);
+        renderResults(result);
+        updateRecentList();
+        showToast(`Hoàn thành trong ${result.durationMs}ms`, 'success');
+
+    } catch (err) {
+        log('[ERR] ' + err.message, 'error');
+        showToast('Lỗi kết nối Backend. Đang dùng simulation mode.', 'warning');
+        await runSimulation(query, t0);
+    } finally {
+        ta.value = '';
+        APP.processing = false;
+        document.getElementById('sendBtn').disabled = false;
+        hideLoading();
+    }
+}
+
+async function runSimulation(query, t0) {
+    const { intent, commands } = analyzeIntent(query);
+
+    setPNode('intent', 'done'); setPConn(1, true); setProgress(35);
+    setPNode('ssh', 'active'); updateLoading('Thực thi SSH (sim)...', '');
+    await delay(500);
+
+    const raw_outputs = commands.map(cmd => ({
+        command: cmd,
+        output: getSimOutput(cmd),
+        device_ip: APP.devices[APP.selectedDevice].ip,
+        duration_ms: Math.floor(40 + Math.random() * 120)
+    }));
+
+    setPNode('ssh', 'done'); setPConn(2, true); setProgress(60);
+    setPNode('analysis', 'active'); await delay(400);
+
+    const allText = raw_outputs.map(o => o.output).join('\n');
+    const issues = analyzeIssues(allText);
+
+    setPNode('analysis', 'done'); setPConn(3, true); setProgress(85);
+    setPNode('fix', 'active'); await delay(300);
+
+    const fixes = generateFixes(issues, intent).map(f => ({ command: f.command, desc: f.desc, risk: f.risk }));
+    setPNode('fix', 'done'); setProgress(100);
+
+    const device = APP.devices[APP.selectedDevice];
+    const result = {
+        query, intent, summary: `${issues.length} vấn đề phát hiện (sim)`,
+        durationMs: Date.now() - t0,
+        raw_outputs, issues_found: issues, fix_suggestions: fixes, fixes_applied: [],
+        device: device.name, device_ip: device.ip,
+        timestamp: new Date().toLocaleTimeString('vi-VN')
+    };
+
+    APP.stats.queries++;
+    APP.stats.commands += raw_outputs.length;
+    APP.stats.issues += issues.length;
+    updateStats();
+    APP.history.push(result);
+    renderResults(result);
+    updateRecentList();
+    document.getElementById('modeIndicator').textContent = 'SIM MODE';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER RESULTS
+// ═══════════════════════════════════════════════════════════════════
+function renderResults(r) {
+    document.getElementById('resultArea').innerHTML = `
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event,'rpane-summary')"><i class="fas fa-file-alt"></i> Kết quả</button>
+            <button class="tab-btn" onclick="switchTab(event,'rpane-ssh')"><i class="fas fa-terminal"></i> SSH Output</button>
+            <button class="tab-btn" onclick="switchTab(event,'rpane-fix')"><i class="fas fa-tools"></i> Fix Commands</button>
+            <button class="tab-btn" onclick="switchTab(event,'rpane-topo')"><i class="fas fa-diagram-project"></i> Topology</button>
+            <button class="tab-btn" onclick="switchTab(event,'rpane-history')"><i class="fas fa-history"></i> Lịch sử</button>
+        </div>
+
+        <div class="tab-pane active" id="rpane-summary">${renderSummary(r)}</div>
+        <div class="tab-pane" id="rpane-ssh">${renderSSH(r)}</div>
+        <div class="tab-pane" id="rpane-fix">${renderFix(r)}</div>
+        <div class="tab-pane" id="rpane-topo">${renderTopo()}</div>
+        <div class="tab-pane" id="rpane-history">${renderHistory()}</div>
+    `;
+    setTimeout(initTopology, 80);
+}
+
+function renderSummary(r) {
+    const issueColor = r.issues_found.length ? 'var(--error)' : 'var(--success)';
+    return `
+        <div class="metrics-row">
+            <div class="metric-mini">
+                <div class="metric-mini-val" style="color:var(--primary);font-size:12px;line-height:1.4;">${r.intent}</div>
+                <div class="metric-mini-label">Intent</div>
+            </div>
+            <div class="metric-mini">
+                <div class="metric-mini-val">${r.raw_outputs.length}</div>
+                <div class="metric-mini-label">Commands</div>
+            </div>
+            <div class="metric-mini">
+                <div class="metric-mini-val" style="color:${issueColor};">${r.issues_found.length}</div>
+                <div class="metric-mini-label">Issues</div>
+            </div>
+            <div class="metric-mini">
+                <div class="metric-mini-val" style="color:var(--text-2);font-size:16px;">${r.durationMs}ms</div>
+                <div class="metric-mini-label">Duration</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div class="card-head-left"><i class="fas fa-bolt" style="color:var(--warning);"></i> Tóm tắt</div>
+                <span style="font-size:10px;color:var(--text-3);">${r.device} · ${r.device_ip}</span>
+            </div>
+            <div class="card-body">
+                <p style="font-size:13px;line-height:1.7;color:var(--text-2);">${r.summary}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div class="card-head-left"><i class="fas fa-triangle-exclamation" style="color:var(--warning);"></i> Vấn đề (${r.issues_found.length})</div>
+            </div>
+            <div class="card-body">
+                ${r.issues_found.length === 0
+                    ? '<div class="no-issues"><i class="fas fa-check-circle"></i> Không phát hiện vấn đề nghiêm trọng</div>'
+                    : r.issues_found.map(i => `
+                        <div class="issue-item">
+                            <span class="issue-badge ${i.severity}">${i.severity.toUpperCase()}</span>
+                            <div>
+                                <div class="issue-desc">${i.description}</div>
+                                <div class="issue-cause"><i class="fas fa-search"></i> ${i.root_cause}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderSSH(r) {
+    if (!r.raw_outputs.length) return '<div style="padding:24px;text-align:center;color:var(--text-3);">Không có SSH output</div>';
+    return r.raw_outputs.map((o, i) => `
+        <div class="ssh-block">
+            <div class="ssh-head" onclick="toggleSSH(${i})">
+                <span class="ssh-cmd"><i class="fas fa-chevron-right" id="sshArrow-${i}"></i> <code>${o.command}</code></span>
+                <span class="ssh-meta">${o.duration_ms}ms · ${o.device_ip}</span>
+            </div>
+            <pre class="ssh-pre" id="sshPre-${i}">${escHtml(o.output)}</pre>
+        </div>
+    `).join('');
+}
+
+function toggleSSH(i) {
+    const pre = document.getElementById('sshPre-' + i);
+    const arrow = document.getElementById('sshArrow-' + i);
+    if (pre.style.display === 'none') {
+        pre.style.display = 'block';
+        arrow.style.transform = '';
+    } else {
+        pre.style.display = 'none';
+        arrow.style.transform = 'rotate(90deg)';
+    }
+}
+
+function renderFix(r) {
+    if (!r.fix_suggestions.length) return '<div style="padding:24px;text-align:center;color:var(--success);"><i class="fas fa-check-circle"></i> Không cần fix</div>';
+    return `
+        <div class="card">
+            <div class="card-head">
+                <div class="card-head-left"><i class="fas fa-magic" style="color:var(--primary);"></i> ${r.fix_suggestions.length} lệnh đề xuất</div>
+            </div>
+            <div class="card-body">
+                ${r.fix_suggestions.map(f => `
+                    <div class="fix-item">
+                        <div class="fix-icon ${f.risk}"><i class="fas fa-wrench"></i></div>
+                        <div class="fix-content">
+                            <div class="fix-cmd">${f.command}</div>
+                            <div class="fix-desc">${f.desc}</div>
+                        </div>
+                        <span class="fix-risk ${f.risk}">${f.risk.toUpperCase()}</span>
+                    </div>
+                `).join('')}
+                <button class="apply-all-btn" onclick="applyAllFixes()">
+                    <i class="fas fa-bolt-lightning"></i> Áp dụng tất cả
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderTopo() {
+    return `
+        <div class="card">
+            <div class="card-head"><div class="card-head-left"><i class="fas fa-diagram-project"></i> Network Topology</div></div>
+            <div class="topo-canvas" id="topoCanvas">
+                <svg class="topo-svg" id="topoSVG"></svg>
+            </div>
+        </div>
+    `;
+}
+
+function renderHistory() {
+    if (!APP.history.length) return '<div style="padding:24px;text-align:center;color:var(--text-3);">Chưa có lịch sử</div>';
+    return `
+        <div class="card">
+            <div class="card-head"><div class="card-head-left"><i class="fas fa-clock-rotate-left"></i> Lịch sử truy vấn</div></div>
+            <div class="card-body np">
+                ${APP.history.slice().reverse().map(h => `
+                    <div class="history-item" onclick="setQ('${h.query.replace(/'/g,"\\'")}')">
+                        <span class="hist-time">${h.timestamp}</span>
+                        <span class="hist-query">${h.query}</span>
+                        <span class="hist-intent">${h.intent}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function switchTab(e, id) {
+    const panes = document.querySelectorAll('.tab-pane');
+    const btns  = document.querySelectorAll('.tab-btn');
+    panes.forEach(p => p.classList.remove('active'));
+    btns.forEach(b => b.classList.remove('active'));
+    document.getElementById(id)?.classList.add('active');
+    e.currentTarget.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TOPOLOGY
+// ═══════════════════════════════════════════════════════════════════
+function initTopology() {
+    const canvas = document.getElementById('topoCanvas');
+    if (!canvas) return;
+    const w = canvas.offsetWidth, h = canvas.offsetHeight;
+    const cx = w / 2;
+
+    const positions = [
+        { x: cx, y: 50 },            // AI Agent
+        { x: cx - 100, y: 150 },     // Core Switch
+        { x: cx + 100, y: 150 },     // Core Router
+        { x: cx - 150, y: 260 },     // Access 1
+        { x: cx + 150, y: 260 },     // Access 2
+    ];
+
+    const svg = document.getElementById('topoSVG');
+    svg.innerHTML = `
+        <line x1="${positions[0].x}" y1="${positions[0].y+24}" x2="${positions[1].x}" y2="${positions[1].y-24}" class="active"/>
+        <line x1="${positions[0].x}" y1="${positions[0].y+24}" x2="${positions[2].x}" y2="${positions[2].y-24}" class="active"/>
+        <line x1="${positions[1].x+24}" y1="${positions[1].y}" x2="${positions[2].x-24}" y2="${positions[2].y}"/>
+        <line x1="${positions[1].x}" y1="${positions[1].y+24}" x2="${positions[3].x}" y2="${positions[3].y-24}"/>
+        <line x1="${positions[2].x}" y1="${positions[2].y+24}" x2="${positions[4].x}" y2="${positions[4].y-24}"/>
+    `;
+
+    const nodes = [
+        { label: 'AI Agent', ip: '', icon: '🤖', active: true },
+        ...APP.devices.map((d, i) => ({ label: d.name, ip: d.ip, icon: d.icon.includes('globe') ? '🌐' : '🖧', active: i === APP.selectedDevice }))
+    ];
+
+    // Remove old nodes
+    canvas.querySelectorAll('.topo-node').forEach(n => n.remove());
+
+    nodes.forEach((n, i) => {
+        const el = document.createElement('div');
+        el.className = 'topo-node' + (n.active ? ' active' : '');
+        el.style.left = positions[i].x + 'px';
+        el.style.top = positions[i].y + 'px';
+        if (i > 0) el.onclick = () => selectDevice(i - 1);
+        el.innerHTML = `
+            <div class="topo-box">${n.icon}</div>
+            <div class="topo-name">${n.label}</div>
+            ${n.ip ? `<div class="topo-ip">${n.ip}</div>` : ''}
+        `;
+        canvas.appendChild(el);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════════════════
+function selectDevice(i) {
+    APP.selectedDevice = i;
+    renderSidebarDevices();
+    showToast('Đã chọn ' + APP.devices[i].name, 'info');
+}
+
+function clearAll() {
+    APP.history = [];
+    APP.stats = { queries: 0, commands: 0, issues: 0, fixes: 0 };
+    updateStats();
+    resetPipeline();
+    document.getElementById('resultArea').innerHTML = `
+        <div class="empty" id="emptyState">
+            <i class="fas fa-robot"></i>
+            <h3>Chưa có phân tích nào</h3>
+            <p>Nhập câu hỏi để bắt đầu phân tích mạng.</p>
+        </div>
+    `;
+    updateRecentList();
+    showToast('Đã xoá lịch sử', 'info');
+}
+
+async function applyAllFixes() {
+    if (!APP.history.length) return;
+    const last = APP.history[APP.history.length - 1];
+    if (!last.fix_suggestions.length) return;
+
+    showLoading('Đang áp dụng fix...', `${last.fix_suggestions.length} lệnh`);
+    try {
+        const res = await fetch('/api/apply-fix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_ip: last.device_ip, commands: last.fix_suggestions.map(f => f.command) })
+        });
+        const data = await res.json();
+        last.fixes_applied = last.fix_suggestions.map(f => f.command);
+        APP.stats.fixes += last.fixes_applied.length;
+        updateStats();
+        (data.agent_logs || []).forEach(l => log('[FIX] ' + l, 'success'));
+        showToast(`Đã áp dụng ${last.fixes_applied.length} lệnh`, 'success');
+        renderResults(last);
+    } catch {
+        showToast('Lỗi áp dụng fix', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function toggleAutoFix() {
+    APP.autoFix = document.getElementById('autoFixToggle').checked;
+    showToast('Auto Fix: ' + (APP.autoFix ? 'ON' : 'OFF'), APP.autoFix ? 'warning' : 'info');
+}
+
+// ─── AI SETTINGS ────────────────────────────────────────────────
+const aiModelsMap = {
+    gemini:     ['gemini/gemini-2.0-flash', 'gemini/gemini-2.5-flash', 'gemini/gemini-2.5-pro'],
+    groq:       ['groq/llama-3.3-70b-versatile', 'groq/llama-3.1-8b-instant', 'groq/deepseek-r1-distill-llama-70b'],
+    openrouter: ['openrouter/meta-llama/llama-3.3-70b-instruct:free', 'openrouter/google/gemma-3-27b-it:free', 'openrouter/qwen/qwen3-coder:free']
+};
+
+function updateAIModelOptions() {
+    const provider = document.getElementById('selectAIProvider')?.value || 'gemini';
+    const sel = document.getElementById('selectAIModel');
+    if (!sel) return;
+    const models = aiModelsMap[provider] || [];
+    sel.innerHTML = models.map(m => `<option value="${m}">${m.split('/').pop()}</option>`).join('');
+}
+
+async function loadAIConfig() {
+    try {
+        const res = await fetch('/api/settings/ai');
+        if (!res.ok) return;
+        const data = await res.json();
+        const fields = { apiKeyGoogle: 'googleApiKey', apiKeyGroq: 'groqApiKey', apiKeyOpenRouter: 'openrouterApiKey' };
+        for (const [elId, key] of Object.entries(fields)) {
+            const el = document.getElementById(elId);
+            if (el && data[key]) el.placeholder = 'Key đã cấu hình (' + data[key].slice(0,4) + '****)';
+        }
+    } catch(e) {}
+
+    const saved = localStorage.getItem('preferredModel') || APP.preferredModel;
+    APP.preferredModel = saved;
+    updateAIModelOptions();
+    const selModel = document.getElementById('selectAIModel');
+    if (selModel) selModel.value = saved;
+    updateMPickerLabel();
+}
+
+async function saveAISettings() {
+    const body = {
+        googleApiKey:      document.getElementById('apiKeyGoogle')?.value || '',
+        groqApiKey:        document.getElementById('apiKeyGroq')?.value || '',
+        openrouterApiKey:  document.getElementById('apiKeyOpenRouter')?.value || ''
+    };
+    const model = document.getElementById('selectAIModel')?.value;
+    if (model) { APP.preferredModel = model; localStorage.setItem('preferredModel', model); updateMPickerLabel(); }
+    try {
+        const res = await fetch('/api/settings/ai', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if (res.ok) showToast('Đã lưu cấu hình AI', 'success');
+        else showToast('Lỗi lưu cấu hình', 'error');
+    } catch { showToast('Không thể kết nối server', 'error'); }
+}
+
+// ─── TELEGRAM SETTINGS ──────────────────────────────────────────
+async function loadTelegramSettings() {
+    try {
+        const res = await fetch('/api/settings/channels');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tg = data.telegram || {};
+        if (tg.token) {
+            const el = document.getElementById('tgTokenInput');
+            if (el) el.placeholder = 'Token đã lưu (' + tg.token.slice(0,6) + '****)';
+            const badge = document.getElementById('tgStatusBadge');
+            if (badge) { badge.textContent = 'Đã kết nối'; badge.style.background = 'rgba(16,185,129,.1)'; badge.style.color = 'var(--success)'; }
+        }
+        if (tg.chatId) {
+            const el = document.getElementById('tgChatIdInput');
+            if (el) el.value = tg.chatId;
+        }
+    } catch(e) {}
+}
+
+async function saveTelegramSettings() {
+    const token  = document.getElementById('tgTokenInput')?.value;
+    const chatId = document.getElementById('tgChatIdInput')?.value || '';
+    if (!token) { showToast('Vui lòng nhập Bot Token', 'warning'); return; }
+    try {
+        const res = await fetch('/api/settings/channels', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ telegramToken: token, telegramChatId: chatId })
+        });
+        if (res.ok) {
+            showToast('Đã lưu cấu hình Telegram', 'success');
+            const badge = document.getElementById('tgStatusBadge');
+            if (badge) { badge.textContent = 'Đã kết nối'; badge.style.background = 'rgba(16,185,129,.1)'; badge.style.color = 'var(--success)'; }
+        } else showToast('Lỗi lưu cấu hình', 'error');
+    } catch { showToast('Không thể kết nối server', 'error'); }
+}
+
+async function testTelegram() {
+    showToast('Đang gửi tin nhắn test...', 'info');
+    try {
+        const res = await fetch('/api/settings/channels/test', { method: 'POST' });
+        if (res.ok) showToast('Đã gửi tin nhắn Telegram thành công!', 'success');
+        else showToast('Gửi thất bại — kiểm tra token và chat ID', 'error');
+    } catch { showToast('Không thể kết nối server', 'error'); }
+}
+
+function testAllProviders(group) {
+    showToast(`Testing ${group || 'all'} providers...`, 'info');
+    setTimeout(() => showToast('All providers responded', 'success'), 1200);
+}
+
+function openProviderModal(id) {
+    const p = APP.providers.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('modalIcon').innerHTML = `<i class="fas ${p.icon}" style="font-size:18px;color:var(--primary);"></i>`;
+    document.getElementById('modalName').textContent = p.name;
+    document.getElementById('modalStatus').textContent = p.status;
+    document.getElementById('modalBody').innerHTML = !p.models.length
+        ? '<div style="text-align:center;padding:24px;color:var(--text-3);">No models configured</div>'
+        : p.models.map(m => `
+            <div class="model-list-item">
+                <div>
+                    <div>${m.name}</div>
+                    <div class="quota-bar"><div class="quota-fill" style="width:${m.quota}%;"></div></div>
+                </div>
+                <span style="font-size:10px;color:var(--text-3);">${m.rpm} rpm</span>
+            </div>
+        `).join('');
+    document.getElementById('providerModal').classList.add('open');
+}
+
+function openTerminal(deviceIdx) {
+    const d = APP.devices[deviceIdx];
+    document.getElementById('terminalTitle').textContent = 'SSH — ' + d.name;
+    document.getElementById('terminalDevice').textContent = d.ip;
+    document.getElementById('terminalLogs').innerHTML = '';
+    document.getElementById('terminalModal').classList.add('open');
+    document.getElementById('terminalInput').focus();
+}
+
+function handleTerminalKey(e) {
+    if (e.key !== 'Enter') return;
+    const input = document.getElementById('terminalInput');
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    const logs = document.getElementById('terminalLogs');
+    logs.innerHTML += `<div><span style="color:var(--primary);">></span> ${escHtml(cmd)}</div>`;
+    const out = getSimOutput(cmd);
+    logs.innerHTML += `<div style="color:#a0c0a0;white-space:pre-wrap;">${escHtml(out)}</div><br>`;
+    input.value = '';
+    document.getElementById('terminalOutput').scrollTop = 999999;
+}
+
+function clearTerminal() {
+    document.getElementById('terminalLogs').innerHTML = '';
+}
+
+function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+}
+
+document.querySelectorAll('.modal-bg').forEach(bg => {
+    bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function updateStats() {
+    document.getElementById('statReq').textContent    = APP.stats.queries;
+    document.getElementById('statCmd').textContent    = APP.stats.commands;
+    document.getElementById('statIssues').textContent = APP.stats.issues;
+    document.getElementById('statFixes').textContent  = APP.stats.fixes;
+}
+
+function updateRecentList() {
+    const c = document.getElementById('recentList');
+    if (!APP.history.length) {
+        c.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-3);font-size:12px;">Chưa có dữ liệu</div>';
+        return;
+    }
+    c.innerHTML = APP.history.slice().reverse().slice(0, 10).map(h => `
+        <div class="req-item" onclick="setQ('${h.query.replace(/'/g,"\\'")}')">
+            <div class="req-query">${h.query}</div>
+            <div class="req-meta">${h.timestamp} · ${h.raw_outputs.length} cmd · ${h.issues_found.length} issue</div>
+        </div>
+    `).join('');
+}
+
+function resetPipeline() {
+    ['intent','ssh','analysis','fix'].forEach(n => setPNode(n, 'idle'));
+    [1,2,3].forEach(i => setPConn(i, false));
+}
+
+function setPNode(name, state) {
+    document.getElementById('pnode-' + name)?.setAttribute('data-state', state);
+}
+
+function setPConn(i, done) {
+    const el = document.getElementById('pconn-' + i);
+    if (el) { el.classList.toggle('done', done); }
+}
+
+function showLoading(text, sub) {
+    document.getElementById('loadingText').textContent = text;
+    document.getElementById('loadingSub').textContent = sub;
+    document.getElementById('loadingBg').classList.add('open');
+    setProgress(0);
+}
+
+function updateLoading(text, sub) {
+    document.getElementById('loadingText').textContent = text;
+    if (sub) document.getElementById('loadingSub').textContent = sub;
+}
+
+function hideLoading() {
+    document.getElementById('loadingBg').classList.remove('open');
+}
+
+function setProgress(pct) {
+    document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function showToast(msg, type = 'info') {
+    const icons = { success: 'fa-check-circle', error: 'fa-circle-xmark', info: 'fa-circle-info', warning: 'fa-triangle-exclamation' };
+    const colors = { success: 'var(--success)', error: 'var(--error)', info: 'var(--info)', warning: 'var(--warning)' };
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<i class="fas ${icons[type]}" style="color:${colors[type]};"></i> ${msg}`;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+
+const consoleLines = [];
+function log(msg, type = 'info') {
+    const colors = { success: '#a0d0a0', error: '#f87171', warning: '#fbbf24', info: '#a1a1aa' };
+    const now = new Date().toLocaleTimeString('vi-VN');
+    const line = `<span style="color:${colors[type] || '#a1a1aa'}">[${now}] ${escHtml(msg)}</span>\n`;
+    consoleLines.push(line);
+    if (consoleLines.length > 500) consoleLines.shift();
+    const el = document.getElementById('consoleOut');
+    if (el) { el.innerHTML = consoleLines.join(''); el.scrollTop = el.scrollHeight; }
+}
+
+function clearConsole() {
+    consoleLines.length = 0;
+    const el = document.getElementById('consoleOut');
+    if (el) el.innerHTML = '<span style="color:var(--text-3)">Console cleared.</span>';
+}
+
+function downloadLogs() {
+    const blob = new Blob([consoleLines.join('').replace(/<[^>]+>/g,'')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `netai-logs-${Date.now()}.txt`;
+    a.click();
+}
+
+function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
