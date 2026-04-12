@@ -1,135 +1,83 @@
+"""
+server.py — NetAI Agent API Server
+"""
 import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from fastapi.staticfiles import StaticFiles
 import sys
 import os
-import shutil
-from dotenv import load_dotenv
-
-# Load secret keys from .env
-load_dotenv()
+import asyncio
+import socket
+import datetime
+import secrets
 
 import requests
-import sqlite3
-import datetime
-from supabase import create_client, Client
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from typing import Optional, List
 
-# Supabase Initialization
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# ── Path setup ─────────────────────────────────────────────────────────────────
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
-supabase: Client = None
-if SUPABASE_URL and SUPABASE_KEY and "your_supabase" not in SUPABASE_URL:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("✅ Đã kết nối Supabase thành công.")
-    except Exception as e:
-        print(f"❌ Lỗi khởi tạo Supabase client: {e}")
-else:
-    print("⚠️ Thiếu SUPABASE_URL hoặc SUPABASE_KEY. Vui lòng cấu hình trong file .env")
-
-def init_db():
-    conn = sqlite3.connect("netai_history.db")
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS diagnostics_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            query TEXT,
-            device_ip TEXT,
-            severity TEXT,
-            root_cause TEXT,
-            intent TEXT,
-            created_at DATETIME
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def save_log_to_db(query, ip, severity, cause, intent):
-    if supabase:
-        try:
-            data = {
-                "query": query,
-                "device_ip": str(ip),
-                "severity": severity,
-                "root_cause": cause,
-                "intent": intent
-            }
-            supabase.table("diagnostics_log").insert(data).execute()
-        except Exception as e:
-            print(f"Lỗi lưu Supabase: {e}")
-    else:
-        # Fallback to local SQLite if Supabase not configured
-        try:
-            conn = sqlite3.connect("netai_history.db")
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO diagnostics_log (query, device_ip, severity, root_cause, intent, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (query, ip, severity, cause, intent, datetime.datetime.now())
-            )
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print(f"Lỗi lưu SQLite: {e}")
-
-def send_telegram_alert(message: str):
-    import dotenv
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-    dotenv.load_dotenv(env_file, override=True)
-    
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        from urllib.parse import quote
-        # Xử lý tự động gửi thông báo với bot demo nếu chưa setup
-        print("Bỏ qua cảnh báo qua Telegram do chưa cắm TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID")
-        return
-    
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
-    try:
-        r = requests.post(url, json=payload, timeout=5)
-        return r.ok
-    except Exception as e:
-        print(f"Lỗi gửi Telegram: {e}")
-        return False
-
-# Đảm bảo có thể import các package trong src từ thư mục gốc
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# ── Internal modules ───────────────────────────────────────────────────────────
+from src.db   import get_conn, init_all_tables, seed_default_user, seed_demo_devices, log_diagnostic
+from src.auth import (create_access_token, authenticate_user, change_user_password,
+                      get_current_user, require_admin, hash_password)
 from src.agent.graph import run_agent
-# Tệp giao diện chính nằm ở thư mục public/ (đổi tên từ UI/)
-import os
-target_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "public")
 
-app = FastAPI(title="NetAI Agent Server")
+PUBLIC_DIR = os.path.join(PROJECT_ROOT, "public")
+ENV_FILE   = os.path.join(PROJECT_ROOT, ".env")
 
+# ── App ────────────────────────────────────────────────────────────────────────
+app = FastAPI(title="NetAI Agent API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"], allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
 )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PYDANTIC MODELS
+# ══════════════════════════════════════════════════════════════════════════════
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 class QueryRequest(BaseModel):
     query: str
-    preferred_model: str = None
+    preferred_model: Optional[str] = None
     simulation: bool = False
 
 class ApplyFixRequest(BaseModel):
     device_ip: str
-    commands: list[str]
+    commands: List[str]
     simulation: bool = False
+
+class DeviceCreate(BaseModel):
+    name: str
+    ip: str
+    type: str = "router"
+    location: str = ""
+    ssh_user: str = ""
+    ssh_pass: str = ""
+    enable_pass: str = ""
+
+class DeviceUpdate(BaseModel):
+    name: Optional[str] = None
+    ip: Optional[str] = None
+    type: Optional[str] = None
+    location: Optional[str] = None
+    ssh_user: Optional[str] = None
+    ssh_pass: Optional[str] = None
+    enable_pass: Optional[str] = None
 
 class SettingsUpdate(BaseModel):
     telegramToken: str
@@ -140,266 +88,358 @@ class AISettingsUpdate(BaseModel):
     groqApiKey: str
     openrouterApiKey: str
 
-class DeviceCreate(BaseModel):
-    name: str
-    ip: str
-    type: str = "cisco_ios"
-    location: str = ""
-    username: str = ""
-    password: str = ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+def mask_key(k: str) -> str:
+    if not k: return ""
+    if len(k) < 8: return "*" * len(k)
+    return k[:4] + "*" * (len(k) - 8) + k[-4:]
+
+
+def send_telegram_alert(message: str) -> bool:
+    import dotenv
+    dotenv.load_dotenv(ENV_FILE, override=True)
+    token   = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+    if not token or not chat_id:
+        print("⚠️  Telegram not configured — skipping alert")
+        return False
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": message, "parse_mode": "Markdown"},
+            timeout=5
+        )
+        return r.ok
+    except Exception as e:
+        print(f"Telegram error: {e}")
+        return False
+
+
+def _tcp_ping(ip: str, port: int = 22, timeout: float = 3.0) -> str:
+    """Blocking TCP connect to check reachability. Returns 'up'/'down'."""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        sock.connect((ip, port))
+        sock.close()
+        return "up"
+    except (socket.timeout, ConnectionRefusedError):
+        return "warning"
+    except OSError:
+        return "down"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STARTUP — init DB, seed data, start background monitor
+# ══════════════════════════════════════════════════════════════════════════════
+async def device_monitor_loop():
+    print("🕵️  Device status monitor started (30s interval).")
+    while True:
+        try:
+            conn = get_conn()
+            devices = conn.execute("SELECT id, ip FROM devices").fetchall()
+            conn.close()
+
+            async def check_one(dev_id, ip):
+                loop = asyncio.get_event_loop()
+                st = await asyncio.wait_for(
+                    loop.run_in_executor(None, _tcp_ping, ip), timeout=5
+                )
+                c = get_conn()
+                c.execute(
+                    "UPDATE devices SET status=?, last_seen=? WHERE id=?",
+                    (st, datetime.datetime.now().isoformat(), dev_id)
+                )
+                c.commit()
+                c.close()
+
+            await asyncio.gather(*[check_one(d["id"], d["ip"]) for d in devices],
+                                 return_exceptions=True)
+        except Exception as e:
+            print(f"Monitor error: {e}")
+        await asyncio.sleep(30)
+
+
+@app.on_event("startup")
+async def startup_event():
+    init_all_tables()
+    seed_default_user()
+    seed_demo_devices()
+    asyncio.create_task(device_monitor_loop())
+    print("🚀 NetAI API Server ready.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AUTH ENDPOINTS
+# ══════════════════════════════════════════════════════════════════════════════
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    user = authenticate_user(req.username, req.password)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Sai tên đăng nhập hoặc mật khẩu")
+    token = create_access_token(user["username"], user["id"], user["role"])
+    return {"access_token": token, "token_type": "bearer",
+            "username": user["username"], "role": user["role"]}
+
+
+@app.get("/api/auth/me")
+def me(current_user: dict = Depends(get_current_user)):
+    return {"username": current_user["sub"],
+            "role":     current_user["role"],
+            "user_id":  current_user["user_id"]}
+
+
+@app.post("/api/auth/change-password")
+def change_password(req: ChangePasswordRequest,
+                    current_user: dict = Depends(get_current_user)):
+    user = authenticate_user(current_user["sub"], req.current_password)
+    if not user:
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
+    change_user_password(current_user["sub"], req.new_password)
+    return {"status": "success", "message": "Đã đổi mật khẩu thành công"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEVICE CRUD  (SQLite-based, no Supabase dependency)
+# ══════════════════════════════════════════════════════════════════════════════
+@app.get("/api/devices")
+def get_devices():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, name, ip, type, location, ssh_user, status, last_seen, created_at FROM devices ORDER BY name"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+@app.get("/api/devices/status")
+def get_device_status():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, name, ip, status, last_seen FROM devices ORDER BY name"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+@app.post("/api/devices")
+def create_device(req: DeviceCreate,
+                  _: dict = Depends(require_admin)):
+    conn = get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO devices (name, ip, type, location, ssh_user, ssh_pass, enable_pass) VALUES (?,?,?,?,?,?,?)",
+            (req.name, req.ip, req.type, req.location, req.ssh_user, req.ssh_pass, req.enable_pass)
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM devices WHERE ip=?", (req.ip,)).fetchone()
+        conn.close()
+        return {"status": "success", "device": dict(row)}
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/devices/{device_id}")
+def update_device(device_id: int, req: DeviceUpdate,
+                  _: dict = Depends(require_admin)):
+    conn = get_conn()
+    existing = conn.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    fields = {k: v for k, v in req.dict().items() if v is not None}
+    if not fields:
+        conn.close()
+        return {"status": "no_change"}
+
+    sets = ", ".join(f"{k}=?" for k in fields)
+    vals = list(fields.values()) + [device_id]
+    conn.execute(f"UPDATE devices SET {sets} WHERE id=?", vals)
+    conn.commit()
+    row = conn.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
+    conn.close()
+    return {"status": "success", "device": dict(row)}
+
+
+@app.delete("/api/devices/{device_id}")
+def delete_device(device_id: int,
+                  _: dict = Depends(require_admin)):
+    conn = get_conn()
+    conn.execute("DELETE FROM devices WHERE id=?", (device_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HISTORY & STATS
+# ══════════════════════════════════════════════════════════════════════════════
+@app.get("/api/history")
+def get_history():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM diagnostics_log ORDER BY created_at DESC LIMIT 100"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+@app.get("/api/stats")
+def get_stats():
+    conn = get_conn()
+    total = conn.execute("SELECT COUNT(*) FROM diagnostics_log").fetchone()[0]
+    issues = conn.execute(
+        "SELECT COUNT(*) FROM diagnostics_log WHERE severity IN ('critical','error','warning')"
+    ).fetchone()[0]
+    conn.close()
+    return {
+        "queries":  total,
+        "commands": total * 3,
+        "issues":   issues,
+        "fixes":    int(issues * 0.8),
+    }
+
+
+@app.get("/api/stats/trend")
+def get_trend():
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT
+            DATE(created_at) as date,
+            COUNT(CASE WHEN severity IN ('critical','error','warning') THEN 1 END) as issues,
+            COUNT(*) as total
+        FROM diagnostics_log
+        WHERE created_at >= DATE('now', '-7 days')
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC
+    """).fetchall()
+    conn.close()
+    result = [{"date": r["date"], "issues": r["issues"],
+               "fixes": int(r["issues"] * 0.8)} for r in rows]
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI ANALYZE & APPLY FIX
+# ══════════════════════════════════════════════════════════════════════════════
+@app.post("/api/analyze")
+def analyze_network(req: QueryRequest):
+    try:
+        print(f"📡 Analyze: {req.query[:80]} | model={req.preferred_model} sim={req.simulation}")
+        state = run_agent(req.query, preferred_model=req.preferred_model, simulation=req.simulation)
+
+        severity   = state.get("status_severity", "unknown").lower()
+        device_ips = state.get("device_ips", [])
+        root_cause = state.get("root_cause_analysis", "Không rõ nguyên nhân")
+
+        # Telegram alert on issues
+        if severity in ["critical", "error", "warning"]:
+            send_telegram_alert(
+                f"🚨 *NetAI Alert: {severity.upper()}*\n\n"
+                f"📍 *Devices:* {', '.join(device_ips)}\n"
+                f"🔍 *Issue:* {root_cause}\n"
+                f"💬 *Query:* {req.query}"
+            )
+
+        # Persist log
+        log_diagnostic(req.query, str(device_ips), severity, root_cause,
+                       state.get("intent_summary", ""))
+
+        return {
+            "intent_summary":  state.get("intent_summary", ""),
+            "device_ips":      device_ips,
+            "commands":        state.get("required_commands", []),
+            "ssh_output":      state.get("ssh_raw_output", {}),
+            "status_severity": severity,
+            "root_cause":      root_cause,
+            "fixes":           state.get("suggested_fix_commands", []),
+            "agent_logs":      state.get("agent_logs", []),
+        }
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return {"error": str(e), "status": "failed"}
+
+
+@app.post("/api/apply-fix")
+def apply_fix(req: ApplyFixRequest):
+    from src.tools.ssh_netmiko import SSHTool
+    result = SSHTool.apply_config(req.device_ip, req.commands, simulation=req.simulation)
+    return {
+        "status":     "success" if "Error" not in result else "error",
+        "output":     result,
+        "agent_logs": [f"🛠️ Applied {len(req.commands)} commands to {req.device_ip}."],
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SETTINGS — AI Keys & Telegram
+# ══════════════════════════════════════════════════════════════════════════════
+@app.get("/api/settings/ai")
+def get_ai_settings():
+    import dotenv; dotenv.load_dotenv(ENV_FILE, override=True)
+    return {
+        "googleApiKey":     mask_key(os.getenv("GOOGLE_API_KEY", "")),
+        "groqApiKey":       mask_key(os.getenv("GROQ_API_KEY", "")),
+        "openrouterApiKey": mask_key(os.getenv("OPENROUTER_API_KEY", "")),
+    }
+
+
+@app.post("/api/settings/ai")
+def update_ai_settings(req: AISettingsUpdate,
+                        _: dict = Depends(require_admin)):
+    import dotenv
+    if req.googleApiKey     and "*" not in req.googleApiKey:
+        dotenv.set_key(ENV_FILE, "GOOGLE_API_KEY",      req.googleApiKey)
+    if req.groqApiKey       and "*" not in req.groqApiKey:
+        dotenv.set_key(ENV_FILE, "GROQ_API_KEY",        req.groqApiKey)
+    if req.openrouterApiKey and "*" not in req.openrouterApiKey:
+        dotenv.set_key(ENV_FILE, "OPENROUTER_API_KEY",  req.openrouterApiKey)
+    dotenv.load_dotenv(ENV_FILE, override=True)
+    return {"status": "success"}
 
 
 @app.get("/api/settings/channels")
 def get_channels():
-    import dotenv
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-    dotenv.load_dotenv(env_file, override=True)
-    return {
-        "telegram": {
-            "token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
-            "chatId": os.getenv("TELEGRAM_CHAT_ID", "")
-        }
-    }
+    import dotenv; dotenv.load_dotenv(ENV_FILE, override=True)
+    return {"telegram": {"token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
+                         "chatId": os.getenv("TELEGRAM_CHAT_ID", "")}}
+
 
 @app.post("/api/settings/channels")
-def update_channels(req: SettingsUpdate):
+def update_channels(req: SettingsUpdate,
+                    _: dict = Depends(require_admin)):
     import dotenv
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-    
-    # Store settings in .env
-    dotenv.set_key(env_file, "TELEGRAM_BOT_TOKEN", req.telegramToken)
-    # Automatically get Chat ID using getUpdates if not provided but token is there? For simplicity we just save what UI sends.
-    # We will assume Chat ID is handled via the bot interaction. UI provides both if they want.
-    dotenv.set_key(env_file, "TELEGRAM_CHAT_ID", req.telegramChatId)
-    
-    dotenv.load_dotenv(env_file, override=True)
+    dotenv.set_key(ENV_FILE, "TELEGRAM_BOT_TOKEN", req.telegramToken)
+    dotenv.set_key(ENV_FILE, "TELEGRAM_CHAT_ID",   req.telegramChatId)
+    dotenv.load_dotenv(ENV_FILE, override=True)
     return {"status": "success"}
 
+
 @app.post("/api/settings/channels/test")
-def test_telegram():
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
-    if not token:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="Chưa cấu hình TELEGRAM_BOT_TOKEN")
+def test_telegram(_: dict = Depends(require_admin)):
     result = send_telegram_alert("✅ NetAI test message — kết nối Telegram thành công!")
     return {"status": "success" if result else "error"}
 
-def mask_key(k: str):
-    if not k: return ""
-    if len(k) < 8: return "*" * len(k)
-    return k[:4] + "*" * (len(k)-8) + k[-4:]
 
-@app.get("/api/settings/ai")
-def get_ai_settings():
-    import dotenv
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-    dotenv.load_dotenv(env_file, override=True)
-    return {
-        "googleApiKey": mask_key(os.getenv("GOOGLE_API_KEY", "")),
-        "groqApiKey": mask_key(os.getenv("GROQ_API_KEY", "")),
-        "openrouterApiKey": mask_key(os.getenv("OPENROUTER_API_KEY", ""))
-    }
-
-@app.post("/api/settings/ai")
-def update_ai_settings(req: AISettingsUpdate):
-    import dotenv
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-    
-    if req.googleApiKey and "*" not in req.googleApiKey:
-        dotenv.set_key(env_file, "GOOGLE_API_KEY", req.googleApiKey)
-    if req.groqApiKey and "*" not in req.groqApiKey:
-        dotenv.set_key(env_file, "GROQ_API_KEY", req.groqApiKey)
-    if req.openrouterApiKey and "*" not in req.openrouterApiKey:
-        dotenv.set_key(env_file, "OPENROUTER_API_KEY", req.openrouterApiKey)
-        
-    dotenv.load_dotenv(env_file, override=True)
-    return {"status": "success"}
-
-
-@app.post("/api/analyze")
-def analyze_network(req: QueryRequest):
-    try:
-        print(f"Nhận yêu cầu: {req.query} (Model: {req.preferred_model}, Sim: {req.simulation})")
-        state = run_agent(req.query, preferred_model=req.preferred_model, simulation=req.simulation)
-        
-        # Gửi cảnh báo Telegram nếu lỗi nghiêm trọng (Phase 2)
-        severity = state.get("status_severity", "unknown").lower()
-        device_ips = state.get("device_ips", [])
-        root_cause = state.get("root_cause_analysis", "Không rõ nguyên nhân")
-        
-        if severity in ["critical", "error", "warning"]:
-            alert_msg = f"🚨 *NetAI Alert: {severity.upper()}*\n\n"
-            alert_msg += f"📍 *Các thiết bị:* {', '.join(device_ips)}\n"
-            alert_msg += f"🔍 *Vấn đề:* {root_cause}\n"
-            alert_msg += f"💬 *Yêu cầu:* {req.query}"
-            send_telegram_alert(alert_msg)
-
-        # Lưu vào CSDL (Phase 3)
-        save_log_to_db(
-            req.query, 
-            str(state.get("device_ips", [])),
-            severity,
-            root_cause,
-            state.get("intent_summary", "")
-        )
-
-        return {
-            "intent_summary": state.get("intent_summary", ""),
-            "device_ips": device_ips,
-            "commands": state.get("required_commands", []),
-            "ssh_output": state.get("ssh_raw_output", {}),
-            "status_severity": severity,
-            "root_cause": root_cause,
-            "fixes": state.get("suggested_fix_commands", []),
-            "agent_logs": state.get("agent_logs", [])
-        }
-    except Exception as e:
-        import traceback
-        print(f"❌ LỖI NGHIÊM TRỌNG TRONG ANALYZE: {e}")
-        traceback.print_exc()
-        return {"error": str(e), "status": "failed"}
-
-@app.get("/api/devices")
-def get_devices():
-    if supabase:
-        try:
-            res = supabase.table("devices").select("*").order("name").execute()
-            return res.data
-        except Exception as e:
-            return {"error": str(e), "data": []}
-    return {"data": []}
-
-@app.post("/api/devices")
-def add_device(req: DeviceCreate):
-    if supabase:
-        try:
-            data = req.dict()
-            res = supabase.table("devices").insert(data).execute()
-            return {"status": "success", "data": res.data}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-    return {"status": "error", "message": "Supabase not connected"}
-
-@app.delete("/api/devices/{device_id}")
-def delete_device(device_id: int):
-    if supabase:
-        try:
-            supabase.table("devices").delete().eq("id", device_id).execute()
-            return {"status": "success"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-    return {"status": "error", "message": "Supabase not connected"}
-
-async def check_all_devices_health():
-    """Background task to monitor device status"""
-    import asyncio
-    print("🕵️ Starting background device monitor...")
-    while True:
-        try:
-            if supabase:
-                res = supabase.table("devices").select("id, ip").execute()
-                devices = res.data
-                for d in devices:
-                    # Simulation: Check if IP responds (ping) or just mock based on IP
-                    # In a real environment, you'd use os.system('ping...')
-                    status = "up" if ".1" in d['ip'] or ".2" in d['ip'] else "down"
-                    supabase.table("devices").update({
-                        "status": status,
-                        "last_checked": datetime.datetime.now().isoformat()
-                    }).eq("id", d['id']).execute()
-            
-            await asyncio.sleep(60) # Chạy mỗi 60 giây
-        except Exception as e:
-            print(f"Lỗi Monitor: {e}")
-            await asyncio.sleep(10)
-
-@app.on_event("startup")
-async def startup_event():
-    import asyncio
-    asyncio.create_task(check_all_devices_health())
-
-@app.post("/api/apply-fix")
-
-def apply_fix(req: ApplyFixRequest):
-    from src.tools.ssh_netmiko import SSHTool
-    print(f"Đang thực hiện Apply Fix trên: {req.device_ip} (Sim: {req.simulation})")
-    print(f"Lệnh: {req.commands}")
-    
-    result = SSHTool.apply_config(req.device_ip, req.commands, simulation=req.simulation)
-    
-    return {
-        "status": "success" if "Error" not in result else "error",
-        "output": result,
-        "agent_logs": [f"🛠️ Đã áp dụng {len(req.commands)} lệnh cấu hình lên {req.device_ip}."]
-    }
-
-@app.get("/api/history")
-def get_history():
-    if supabase:
-        try:
-            response = supabase.table("diagnostics_log").select("*").order("created_at", desc=True).limit(50).execute()
-            return response.data
-        except Exception as e:
-            print(f"Lỗi truy vấn Supabase: {e}")
-            return {"error": str(e)}
-    else:
-        # Fallback to local SQLite
-        try:
-            conn = sqlite3.connect("netai_history.db")
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM diagnostics_log ORDER BY created_at DESC LIMIT 50")
-            rows = cursor.fetchall()
-            history = [dict(row) for row in rows]
-            conn.close()
-            return history
-        except Exception as e:
-            return {"error": str(e)}
-
-@app.get("/api/stats")
-def get_stats():
-    if supabase:
-        try:
-            # Get total requests
-            res_req = supabase.table("diagnostics_log").select("id", count="exact").execute()
-            total_req = res_req.count or 0
-            
-            # Get total items for issues and commands (we have to count them from the logs)
-            res_all = supabase.table("diagnostics_log").select("severity").execute()
-            logs = res_all.data
-            
-            issues_count = len([l for l in logs if l.get('severity') in ['critical', 'error', 'warning']])
-            
-            # Simulated commands run based on history length * multiplier
-            commands_count = total_req * 3 
-            
-            return {
-                "queries": total_req,
-                "commands": commands_count,
-                "issues": issues_count,
-                "fixes": int(issues_count * 0.8)
-            }
-        except Exception as e:
-            print(f"Lỗi stats: {e}")
-            return {"queries": 0, "commands": 0, "issues": 0, "fixes": 0}
-    return {"queries": 0, "commands": 0, "issues": 0, "fixes": 0}
-
-
+# ══════════════════════════════════════════════════════════════════════════════
+# STATIC FILES
+# ══════════════════════════════════════════════════════════════════════════════
 @app.get("/")
 def read_root():
-    index_path = os.path.join(target_dir, "index.html")
+    index_path = os.path.join(PUBLIC_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"error": "index.html not found"}
 
-# Phục vụ thư mục Giao Diện tĩnh khi người dùng vào http://localhost:8000/
-if os.path.exists(target_dir):
-    app.mount("/", StaticFiles(directory=target_dir, html=True), name="static")
+if os.path.exists(PUBLIC_DIR):
+    app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="static")
+
 
 if __name__ == "__main__":
-    print("🚀 Bắt đầu chạy máy chủ NetAI API trên cổng http://0.0.0.0:8015")
-    uvicorn.run(app, host="0.0.0.0", port=8015)
-
-
-
+    uvicorn.run("src.server:app", host="0.0.0.0", port=8000, reload=False)

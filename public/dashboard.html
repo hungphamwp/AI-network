@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --primary: #f97316;
@@ -788,6 +789,61 @@
     </div>
 </div>
 
+<!-- Device Add/Edit Modal -->
+<div class="modal-bg" id="deviceModal">
+    <div class="modal" style="max-width:500px;">
+        <div class="modal-head">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="provider-icon" style="background:rgba(249,115,22,.1);"><i class="fas fa-server" style="color:var(--primary);"></i></div>
+                <div id="deviceModalTitle" style="font-size:15px;font-weight:600;">Thêm thiết bị</div>
+            </div>
+            <button class="btn btn-ghost" onclick="closeModal('deviceModal')" style="padding:6px 10px;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="deviceEditId">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <div class="input-label">Tên thiết bị *</div>
+                    <input class="input-field" id="dName" placeholder="Core Switch">
+                </div>
+                <div>
+                    <div class="input-label">Địa chỉ IP *</div>
+                    <input class="input-field" id="dIp" placeholder="192.168.1.1">
+                </div>
+                <div>
+                    <div class="input-label">Loại thiết bị</div>
+                    <select class="input-field" id="dType">
+                        <option value="router">Router</option>
+                        <option value="switch">Switch</option>
+                        <option value="firewall">Firewall</option>
+                        <option value="access_point">Access Point</option>
+                    </select>
+                </div>
+                <div>
+                    <div class="input-label">Vị trí</div>
+                    <input class="input-field" id="dLocation" placeholder="Server Room A">
+                </div>
+                <div>
+                    <div class="input-label">SSH Username</div>
+                    <input class="input-field" id="dSshUser" placeholder="admin">
+                </div>
+                <div>
+                    <div class="input-label">SSH Password</div>
+                    <input class="input-field" type="password" id="dSshPass" placeholder="••••••••">
+                </div>
+                <div style="grid-column:1/-1;">
+                    <div class="input-label">Enable Password <span style="color:var(--text-3)">(tùy chọn)</span></div>
+                    <input class="input-field" type="password" id="dEnablePass" placeholder="Để trống nếu không dùng">
+                </div>
+            </div>
+        </div>
+        <div style="padding:16px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);">
+            <button class="btn btn-ghost" onclick="closeModal('deviceModal')">Hủy</button>
+            <button class="btn btn-primary" onclick="saveDevice()"><i class="fas fa-save"></i> Lưu thiết bị</button>
+        </div>
+    </div>
+</div>
+
 <!-- Terminal Modal -->
 <div class="modal-bg" id="terminalModal">
     <div class="modal terminal-modal">
@@ -905,7 +961,7 @@
                         <div style="font-size:11px;color:var(--text-2);font-family:var(--font-mono);" id="clockDisplay"></div>
                         <div style="font-size:9px;color:var(--text-3);margin-top:1px;">LOCAL TIME</div>
                     </div>
-                    <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;" title="Admin">AD</div>
+                    <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;" id="userAvatar" onclick="goTab('settings',document.querySelector('[onclick*=settings]'))" title="Settings"></div>
                 </div>
             </div>
 
@@ -1035,6 +1091,20 @@
                     </div>
                 </div>
 
+                <!-- Trend Chart -->
+                <div class="card" id="trendCard" style="display:none;">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <i class="fas fa-chart-area" style="color:var(--primary);"></i>
+                            <span>Xu hướng 7 ngày gần nhất</span>
+                        </div>
+                        <span style="font-size:10px;color:var(--text-3);font-family:var(--font-mono);">Issues & Fixes / day</span>
+                    </div>
+                    <div class="card-body" style="height:180px;padding:12px 16px;">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
                 <!-- Result + side panel -->
                 <div class="dash-layout">
                     <div id="resultArea">
@@ -1069,9 +1139,16 @@
                     <div class="topbar-title"><i class="fas fa-server" style="color:var(--primary);margin-right:8px;"></i>Thiết bị mạng</div>
                     <div class="topbar-sub">Quản lý và giám sát trạng thái thiết bị Core & Edge</div>
                 </div>
-                <button class="btn btn-primary" onclick="showToast('Đang quét mạng...','info')"><i class="fas fa-sync"></i> Scan</button>
+                <div class="btns">
+                    <button class="btn btn-ghost" onclick="loadDevices()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn btn-primary" onclick="openAddDevice()"><i class="fas fa-plus"></i> Thêm thiết bị</button>
+                </div>
             </div>
-            <div class="devices-grid" id="devicesGrid"></div>
+            <div class="devices-grid" id="devicesGrid">
+                <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-3);font-size:13px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>Đang tải thiết bị...
+                </div>
+            </div>
         </div>
 
         <!-- ── PROVIDERS ──────────────────────────────────────────── -->
@@ -1153,15 +1230,15 @@
                         </div>
                         <div class="input-group">
                             <div>
-                                <div class="input-label">New Password</div>
-                                <input class="input-field" type="password" placeholder="Enter new password">
+                                <div class="input-label">Mật khẩu hiện tại</div>
+                                <input class="input-field" type="password" id="currentPwd" placeholder="••••••••">
                             </div>
                             <div>
-                                <div class="input-label">Confirm Password</div>
-                                <input class="input-field" type="password" placeholder="Confirm password">
+                                <div class="input-label">Mật khẩu mới</div>
+                                <input class="input-field" type="password" id="newPwd" placeholder="Tối thiểu 6 ký tự">
                             </div>
                         </div>
-                        <button class="btn btn-primary" onclick="showToast('Mật khẩu đã cập nhật','success')">Save Password</button>
+                        <button class="btn btn-primary" onclick="changePassword()"><i class="fas fa-key"></i> Đổi mật khẩu</button>
                     </div>
                 </div>
 
@@ -1398,17 +1475,70 @@ function generateFixes(issues, intent) {
 // ═══════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-    renderSidebarDevices();
+// ═══════════════════════════════════════════════════════════════════
+// AUTH — JWT helpers
+// ═══════════════════════════════════════════════════════════════════
+function getToken() { return localStorage.getItem('netai_token') || ''; }
+
+function authHeaders() {
+    const t = getToken();
+    return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }
+             : { 'Content-Type': 'application/json' };
+}
+
+async function apiFetch(url, opts = {}) {
+    opts.headers = { ...authHeaders(), ...(opts.headers || {}) };
+    try {
+        const res = await fetch(url, opts);
+        if (res.status === 401) {
+            localStorage.removeItem('netai_token');
+            window.location.href = '/index.html';
+            return null;
+        }
+        return res;
+    } catch (e) {
+        showToast('Không kết nối được server', 'error');
+        return null;
+    }
+}
+
+function logout() {
+    localStorage.removeItem('netai_token');
+    localStorage.removeItem('netai_role');
+    localStorage.removeItem('netai_user');
+    window.location.href = '/index.html';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+    // Guard: redirect to login if no token
+    if (!getToken()) { window.location.href = '/index.html'; return; }
+
+    // Verify token & set user info
+    const meRes = await apiFetch('/api/auth/me');
+    if (!meRes) return;
+    const me = await meRes.json();
+    const initials = (me.username || 'AD').slice(0,2).toUpperCase();
+    const av = document.getElementById('userAvatar');
+    if (av) av.textContent = initials;
+    localStorage.setItem('netai_user', me.username);
+
+    // Init UI
     renderModelPicker();
-    renderDevicesPage();
     renderProvidersPage();
     updateAIModelOptions();
-    loadAIConfig();
-    loadTelegramSettings();
     updateClock();
     setInterval(updateClock, 1000);
-    log('NetAI Agent initialized', 'success');
+
+    // Load data from API
+    await Promise.all([loadDevices(), loadStats(), loadHistory()]);
+    loadTrendChart();
+    loadAIConfig();
+    loadTelegramSettings();
+    startStatusPolling();
+    log('NetAI Agent initialized — user: ' + me.username, 'success');
 });
 
 function updateClock() {
@@ -1472,14 +1602,38 @@ document.addEventListener('click', () => {
     document.getElementById('mpickerDrop')?.classList.remove('open');
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// DEVICES — Load from API + CRUD
+// ═══════════════════════════════════════════════════════════════════
+async function loadDevices() {
+    const res = await apiFetch('/api/devices');
+    if (!res) return;
+    const data = await res.json();
+    APP.devices = data.map(d => ({
+        ...d,
+        icon: d.type === 'router' ? 'fa-globe'
+            : d.type === 'firewall' ? 'fa-shield-halved'
+            : 'fa-network-wired'
+    }));
+    renderSidebarDevices();
+    renderDevicesPage();
+}
+
 function renderDevicesPage() {
     const g = document.getElementById('devicesGrid');
+    if (!APP.devices.length) {
+        g.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-3);">
+            <i class="fas fa-server" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3;"></i>
+            Chưa có thiết bị nào. <span style="color:var(--primary);cursor:pointer;" onclick="openAddDevice()">Thêm thiết bị đầu tiên</span>
+        </div>`;
+        return;
+    }
     g.innerHTML = APP.devices.map((d, i) => `
-        <div class="device-card" onclick="openTerminal(${i})">
+        <div class="device-card" data-device-id="${d.id}">
             <div class="device-card-head">
                 <div class="device-icon"><i class="fas ${d.icon}"></i></div>
                 <div>
-                    <div class="device-name">${d.name}</div>
+                    <div class="device-name">${escHtml(d.name)}</div>
                     <div class="device-ip">${d.ip}</div>
                 </div>
             </div>
@@ -1490,20 +1644,229 @@ function renderDevicesPage() {
                 </div>
                 <div class="device-meta-item">
                     <div class="device-meta-label">Location</div>
-                    <div class="device-meta-val">${d.location}</div>
+                    <div class="device-meta-val">${escHtml(d.location || '—')}</div>
+                </div>
+                <div class="device-meta-item">
+                    <div class="device-meta-label">Last Seen</div>
+                    <div class="device-meta-val last-seen" style="font-size:10px;">${d.last_seen ? new Date(d.last_seen).toLocaleTimeString('vi-VN') : '—'}</div>
+                </div>
+                <div class="device-meta-item">
+                    <div class="device-meta-label">SSH User</div>
+                    <div class="device-meta-val">${escHtml(d.ssh_user || '—')}</div>
                 </div>
             </div>
             <div class="device-footer">
-                <span class="status-badge ${d.status}">
+                <span class="status-badge ${d.status || 'down'}">
                     <i class="fas fa-circle" style="font-size:7px;"></i>
-                    ${d.status.toUpperCase()}
+                    ${(d.status || 'unknown').toUpperCase()}
                 </span>
-                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="event.stopPropagation();selectDevice(${i});goTab('dashboard')">
-                    <i class="fas fa-terminal"></i> Query
-                </button>
+                <div class="btns">
+                    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" title="Query" onclick="selectDevice(${i});goTab('dashboard',document.querySelector('[onclick*=dashboard]'))">
+                        <i class="fas fa-terminal"></i>
+                    </button>
+                    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" title="Sửa" onclick="openEditDevice(${i})">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--error);" title="Xóa" onclick="deleteDevice(${d.id},'${escHtml(d.name)}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
             </div>
         </div>
     `).join('');
+}
+
+function openAddDevice() {
+    document.getElementById('deviceEditId').value = '';
+    document.getElementById('deviceModalTitle').textContent = 'Thêm thiết bị';
+    ['dName','dIp','dLocation','dSshUser','dSshPass','dEnablePass'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('dType').value = 'router';
+    document.getElementById('deviceModal').classList.add('open');
+}
+
+function openEditDevice(idx) {
+    const d = APP.devices[idx];
+    document.getElementById('deviceEditId').value = d.id;
+    document.getElementById('deviceModalTitle').textContent = 'Sửa thiết bị';
+    document.getElementById('dName').value     = d.name || '';
+    document.getElementById('dIp').value       = d.ip || '';
+    document.getElementById('dType').value     = d.type || 'router';
+    document.getElementById('dLocation').value = d.location || '';
+    document.getElementById('dSshUser').value  = d.ssh_user || '';
+    document.getElementById('dSshPass').value  = '';
+    document.getElementById('dEnablePass').value = '';
+    document.getElementById('deviceModal').classList.add('open');
+}
+
+async function saveDevice() {
+    const id   = document.getElementById('deviceEditId').value;
+    const body = {
+        name:        document.getElementById('dName').value.trim(),
+        ip:          document.getElementById('dIp').value.trim(),
+        type:        document.getElementById('dType').value,
+        location:    document.getElementById('dLocation').value.trim(),
+        ssh_user:    document.getElementById('dSshUser').value.trim(),
+        ssh_pass:    document.getElementById('dSshPass').value,
+        enable_pass: document.getElementById('dEnablePass').value,
+    };
+    if (!body.name || !body.ip) { showToast('Tên và IP là bắt buộc', 'warning'); return; }
+
+    const url    = id ? `/api/devices/${id}` : '/api/devices';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
+    if (!res) return;
+    if (res.ok) {
+        showToast(id ? 'Đã cập nhật thiết bị' : 'Đã thêm thiết bị', 'success');
+        closeModal('deviceModal');
+        await loadDevices();
+    } else {
+        const err = await res.json().catch(() => ({}));
+        showToast('Lỗi: ' + (err.detail || 'Không thể lưu'), 'error');
+    }
+}
+
+async function deleteDevice(id, name) {
+    if (!confirm(`Xóa thiết bị "${name}"?`)) return;
+    const res = await apiFetch(`/api/devices/${id}`, { method: 'DELETE' });
+    if (res?.ok) { showToast('Đã xóa thiết bị', 'success'); await loadDevices(); }
+    else showToast('Không thể xóa', 'error');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STATS & HISTORY — Load from DB
+// ═══════════════════════════════════════════════════════════════════
+async function loadStats() {
+    const res = await apiFetch('/api/stats');
+    if (!res) return;
+    const data = await res.json();
+    APP.stats.queries  = data.queries  || 0;
+    APP.stats.commands = data.commands || 0;
+    APP.stats.issues   = data.issues   || 0;
+    APP.stats.fixes    = data.fixes    || 0;
+    updateStats();
+}
+
+async function loadHistory() {
+    const res = await apiFetch('/api/history');
+    if (!res) return;
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    APP.history = data.map(h => ({
+        query:        h.query || '',
+        timestamp:    h.created_at || '',
+        intent:       h.intent || '',
+        device_ip:    h.device_ip || '',
+        issues_found: h.severity && h.severity !== 'ok'
+            ? [{ severity: h.severity, description: h.root_cause, root_cause: h.root_cause }]
+            : [],
+        fix_suggestions: [],
+        raw_outputs:     []
+    }));
+    updateRecentList();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TREND CHART — Chart.js
+// ═══════════════════════════════════════════════════════════════════
+let _trendChart = null;
+
+async function loadTrendChart() {
+    const res = await apiFetch('/api/stats/trend');
+    if (!res) return;
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return;
+
+    document.getElementById('trendCard').style.display = '';
+    const labels = data.map(d => d.date ? d.date.slice(5) : '');
+    const issues = data.map(d => d.issues || 0);
+    const fixes  = data.map(d => d.fixes  || 0);
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    if (_trendChart) _trendChart.destroy();
+    _trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Issues',  data: issues, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)',  tension: 0.4, fill: true, pointRadius: 3 },
+                { label: 'Fixes',   data: fixes,  borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', tension: 0.4, fill: true, pointRadius: 3 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#a1a1aa', font: { size: 11, family: 'Inter' }, boxWidth: 10 } }
+            },
+            scales: {
+                x: { ticks: { color: '#52525b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                y: { ticks: { color: '#52525b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true, precision: 0 }
+            }
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REALTIME STATUS POLLING
+// ═══════════════════════════════════════════════════════════════════
+let _statusPoll = null;
+
+function startStatusPolling() {
+    pollDeviceStatus();
+    _statusPoll = setInterval(pollDeviceStatus, 15000);
+}
+
+async function pollDeviceStatus() {
+    const res = await apiFetch('/api/devices/status');
+    if (!res) return;
+    const statuses = await res.json();
+    if (!Array.isArray(statuses)) return;
+
+    statuses.forEach(s => {
+        // Update APP.devices
+        const d = APP.devices.find(x => x.id === s.id);
+        if (d) { d.status = s.status; d.last_seen = s.last_seen; }
+
+        // Update sidebar dot
+        const sideEl = document.querySelector(`#sidebarDevices .device-mini`);
+
+        // Update grid card dot + last-seen without full re-render
+        const card = document.querySelector(`[data-device-id="${s.id}"]`);
+        if (card) {
+            const dot = card.querySelector('.status-badge');
+            if (dot) {
+                dot.className = `status-badge ${s.status || 'down'}`;
+                dot.innerHTML = `<i class="fas fa-circle" style="font-size:7px;"></i> ${(s.status||'unknown').toUpperCase()}`;
+            }
+            const ls = card.querySelector('.last-seen');
+            if (ls && s.last_seen) ls.textContent = new Date(s.last_seen).toLocaleTimeString('vi-VN');
+        }
+    });
+    renderSidebarDevices();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CHANGE PASSWORD
+// ═══════════════════════════════════════════════════════════════════
+async function changePassword() {
+    const cur = document.getElementById('currentPwd').value;
+    const nw  = document.getElementById('newPwd').value;
+    if (!cur || !nw) { showToast('Vui lòng nhập đầy đủ', 'warning'); return; }
+    if (nw.length < 6) { showToast('Mật khẩu mới tối thiểu 6 ký tự', 'warning'); return; }
+    const res = await apiFetch('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ current_password: cur, new_password: nw })
+    });
+    if (!res) return;
+    if (res.ok) {
+        showToast('Đã đổi mật khẩu thành công', 'success');
+        document.getElementById('currentPwd').value = '';
+        document.getElementById('newPwd').value = '';
+    } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || 'Lỗi đổi mật khẩu', 'error');
+    }
 }
 
 function renderProvidersPage() {
@@ -1575,7 +1938,7 @@ async function submitQuery() {
     setPNode('intent', 'active');
 
     try {
-        const res = await fetch('/api/analyze', {
+        const res = await apiFetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query, preferred_model: APP.preferredModel })
@@ -1942,7 +2305,7 @@ async function applyAllFixes() {
 
     showLoading('Đang áp dụng fix...', `${last.fix_suggestions.length} lệnh`);
     try {
-        const res = await fetch('/api/apply-fix', {
+        const res = await apiFetch('/api/apply-fix', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ device_ip: last.device_ip, commands: last.fix_suggestions.map(f => f.command) })
@@ -1983,7 +2346,7 @@ function updateAIModelOptions() {
 
 async function loadAIConfig() {
     try {
-        const res = await fetch('/api/settings/ai');
+        const res = await apiFetch('/api/settings/ai');
         if (!res.ok) return;
         const data = await res.json();
         const fields = { apiKeyGoogle: 'googleApiKey', apiKeyGroq: 'groqApiKey', apiKeyOpenRouter: 'openrouterApiKey' };
@@ -2010,7 +2373,7 @@ async function saveAISettings() {
     const model = document.getElementById('selectAIModel')?.value;
     if (model) { APP.preferredModel = model; localStorage.setItem('preferredModel', model); updateMPickerLabel(); }
     try {
-        const res = await fetch('/api/settings/ai', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const res = await apiFetch('/api/settings/ai', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
         if (res.ok) showToast('Đã lưu cấu hình AI', 'success');
         else showToast('Lỗi lưu cấu hình', 'error');
     } catch { showToast('Không thể kết nối server', 'error'); }
@@ -2019,7 +2382,7 @@ async function saveAISettings() {
 // ─── TELEGRAM SETTINGS ──────────────────────────────────────────
 async function loadTelegramSettings() {
     try {
-        const res = await fetch('/api/settings/channels');
+        const res = await apiFetch('/api/settings/channels');
         if (!res.ok) return;
         const data = await res.json();
         const tg = data.telegram || {};
@@ -2041,7 +2404,7 @@ async function saveTelegramSettings() {
     const chatId = document.getElementById('tgChatIdInput')?.value || '';
     if (!token) { showToast('Vui lòng nhập Bot Token', 'warning'); return; }
     try {
-        const res = await fetch('/api/settings/channels', {
+        const res = await apiFetch('/api/settings/channels', {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ telegramToken: token, telegramChatId: chatId })
         });
@@ -2056,7 +2419,7 @@ async function saveTelegramSettings() {
 async function testTelegram() {
     showToast('Đang gửi tin nhắn test...', 'info');
     try {
-        const res = await fetch('/api/settings/channels/test', { method: 'POST' });
+        const res = await apiFetch('/api/settings/channels/test', { method: 'POST' });
         if (res.ok) showToast('Đã gửi tin nhắn Telegram thành công!', 'success');
         else showToast('Gửi thất bại — kiểm tra token và chat ID', 'error');
     } catch { showToast('Không thể kết nối server', 'error'); }

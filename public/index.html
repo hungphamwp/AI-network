@@ -278,13 +278,13 @@
             <div class="error-msg" id="errorMsg">Thông tin đăng nhập không hợp lệ</div>
 
             <div class="input-group">
-                <label>Username (demo: admin)</label>
-                <input type="text" id="username" placeholder="Nhập admin" autocomplete="off">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="admin" autocomplete="off">
             </div>
-            
+
             <div class="input-group">
-                <label>Password (demo: admin)</label>
-                <input type="password" id="password" placeholder="Nhập admin">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="••••••••">
             </div>
             
             <button class="btn-submit" onclick="doLogin()">Log In</button>
@@ -302,27 +302,66 @@
             setTimeout(() => { document.getElementById('loginModal').style.display = 'none'; }, 300);
         }
         
-        function doLogin() {
-            const u = document.getElementById('username').value;
+        async function doLogin() {
+            const u = document.getElementById('username').value.trim();
             const p = document.getElementById('password').value;
-            
-            if(u === 'admin' && p === 'admin') {
-                localStorage.setItem('netai_auth', 'true');
-                window.location.href = '/portal.html';
-            } else {
-                document.getElementById('errorMsg').style.display = 'block';
-                setTimeout(() => { document.getElementById('errorMsg').style.display = 'none'; }, 3000);
+            const btn = document.querySelector('.btn-submit');
+            const errEl = document.getElementById('errorMsg');
+
+            if (!u || !p) {
+                errEl.textContent = 'Vui lòng nhập đầy đủ thông tin';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            btn.textContent = 'Đang đăng nhập...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    errEl.textContent = err.detail || 'Sai tên đăng nhập hoặc mật khẩu';
+                    errEl.style.display = 'block';
+                    setTimeout(() => { errEl.style.display = 'none'; }, 3500);
+                    return;
+                }
+
+                const data = await res.json();
+                localStorage.setItem('netai_token', data.access_token);
+                localStorage.setItem('netai_role',  data.role);
+                localStorage.setItem('netai_user',  data.username);
+                window.location.href = '/dashboard.html';
+
+            } catch (e) {
+                errEl.textContent = 'Không kết nối được server — hãy đảm bảo server đang chạy';
+                errEl.style.display = 'block';
+            } finally {
+                btn.textContent = 'Log In';
+                btn.disabled = false;
             }
         }
-        
-        document.getElementById('password').addEventListener('keyup', function(e) {
+
+        document.getElementById('password').addEventListener('keyup', e => {
             if (e.key === 'Enter') doLogin();
         });
-        
-        // Auto-redirect if already logged in (optional, kept manual for demo viewing)
-        // if (localStorage.getItem('netai_auth') === 'true') {
-        //     window.location.href = '/portal.html'; 
-        // }
+
+        // Auto-redirect nếu token còn hợp lệ
+        (async () => {
+            const token = localStorage.getItem('netai_token');
+            if (!token) return;
+            try {
+                const r = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (r.ok) window.location.href = '/dashboard.html';
+            } catch (_) {}
+        })();
 
         /* App Chat Modal Scripts */
         function setAppChatInput(text) {
