@@ -16,3 +16,9 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+
+# Local database
+*.db
+
+# Claude Code worktrees
+.claude/worktrees/
