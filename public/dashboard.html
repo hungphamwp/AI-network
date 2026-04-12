@@ -68,18 +68,24 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 18px 16px;
+            padding: 16px;
             border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(249,115,22,.06) 0%, transparent 60%);
         }
         .logo-icon {
-            width: 30px; height: 30px;
-            background: var(--primary-dim);
-            border-radius: 7px;
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, var(--primary-dim), #c2410c);
+            border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
             color: #fff; font-size: 14px;
+            box-shadow: 0 2px 8px rgba(249,115,22,.35);
         }
-        .logo-text { font-size: 13px; font-weight: 600; }
-        .logo-ver { font-size: 10px; color: var(--text-3); }
+        .logo-text { font-size: 13px; font-weight: 700; letter-spacing: -.2px; }
+        .logo-ver {
+            font-size: 9px; color: var(--text-3);
+            background: var(--bg-3); border: 1px solid var(--border);
+            padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono);
+        }
 
         .nav-section { padding: 12px 8px 4px; }
         .nav-label {
@@ -148,58 +154,104 @@
 
         /* ─── DASHBOARD PAGE ───────────────────────────────────────── */
 
-        /* Pipeline */
+        /* ─── ENTERPRISE PIPELINE ─────────────────────────────────── */
         .pipeline {
-            display: flex; align-items: center; justify-content: center;
-            gap: 0; padding: 16px 24px;
+            display: flex; align-items: stretch;
             border-bottom: 1px solid var(--border);
             background: var(--bg-1);
         }
-        .p-node {
-            display: flex; flex-direction: column; align-items: center; gap: 6px;
-            flex: 0 0 auto;
+        .p-step {
+            flex: 1; display: flex; align-items: center; gap: 12px;
+            padding: 14px 18px 12px; position: relative;
+            border-right: 1px solid var(--border);
+            transition: background .2s;
+            overflow: hidden;
         }
-        .p-circle {
-            width: 44px; height: 44px; border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; border: 2px solid var(--border);
-            background: var(--bg-2); transition: .3s;
-        }
-        .p-label { font-size: 10px; color: var(--text-3); font-weight: 500; white-space: nowrap; }
-        .p-conn {
-            width: 40px; height: 2px; background: var(--border);
-            position: relative; margin-bottom: 24px; transition: .3s;
-        }
-        .p-conn::after {
-            content: ''; position: absolute;
-            right: -4px; top: 50%; transform: translateY(-50%);
-            border-left: 5px solid var(--border);
-            border-top: 3px solid transparent;
-            border-bottom: 3px solid transparent;
-            transition: .3s;
-        }
-        .p-node[data-node="intent"] .p-circle { color: var(--primary); }
-        .p-node[data-node="ssh"] .p-circle { color: var(--info); }
-        .p-node[data-node="analysis"] .p-circle { color: #8b5cf6; }
-        .p-node[data-node="fix"] .p-circle { color: var(--success); }
+        .p-step:last-child { border-right: none; }
 
-        .p-node[data-state="active"] .p-circle {
-            border-color: currentColor;
-            box-shadow: 0 0 16px currentColor;
-            animation: pulse-node 1.4s infinite;
+        /* Bottom indicator bar */
+        .p-step::after {
+            content: ''; position: absolute;
+            bottom: 0; left: 0; right: 0; height: 2px;
+            background: transparent; transition: background .4s;
         }
-        .p-node[data-state="done"] .p-circle {
-            border-color: currentColor;
-            background: currentColor;
+        .p-step[data-node="intent"][data-state="active"]::after,
+        .p-step[data-node="intent"][data-state="done"]::after { background: var(--primary); }
+        .p-step[data-node="ssh"][data-state="active"]::after,
+        .p-step[data-node="ssh"][data-state="done"]::after { background: var(--info); }
+        .p-step[data-node="analysis"][data-state="active"]::after,
+        .p-step[data-node="analysis"][data-state="done"]::after { background: #8b5cf6; }
+        .p-step[data-node="fix"][data-state="active"]::after,
+        .p-step[data-node="fix"][data-state="done"]::after { background: var(--success); }
+
+        /* Step number badge */
+        .p-step-num {
+            position: absolute; top: 9px; left: 18px;
+            font-size: 9px; font-weight: 700; font-family: var(--font-mono);
+            letter-spacing: .5px; color: var(--text-3);
+            background: var(--bg-3); border: 1px solid var(--border);
+            padding: 1px 6px; border-radius: 4px; line-height: 1.6;
+            transition: all .3s;
         }
-        .p-node[data-state="done"] .p-circle i { filter: brightness(0) invert(1); }
-        .p-node[data-state="done"] .p-label { color: currentColor; }
-        .p-conn.done { background: var(--primary); }
-        .p-conn.done::after { border-left-color: var(--primary); }
-        @keyframes pulse-node {
-            0%, 100% { box-shadow: 0 0 10px currentColor; }
-            50% { box-shadow: 0 0 24px currentColor; }
+        .p-step[data-node="intent"][data-state="active"] .p-step-num,
+        .p-step[data-node="intent"][data-state="done"] .p-step-num { color: var(--primary); border-color: rgba(249,115,22,.4); background: rgba(249,115,22,.08); }
+        .p-step[data-node="ssh"][data-state="active"] .p-step-num,
+        .p-step[data-node="ssh"][data-state="done"] .p-step-num { color: var(--info); border-color: rgba(59,130,246,.4); background: rgba(59,130,246,.08); }
+        .p-step[data-node="analysis"][data-state="active"] .p-step-num,
+        .p-step[data-node="analysis"][data-state="done"] .p-step-num { color: #8b5cf6; border-color: rgba(139,92,246,.4); background: rgba(139,92,246,.08); }
+        .p-step[data-node="fix"][data-state="active"] .p-step-num,
+        .p-step[data-node="fix"][data-state="done"] .p-step-num { color: var(--success); border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.08); }
+
+        /* Icon box */
+        .p-step-icon {
+            width: 40px; height: 40px; flex-shrink: 0;
+            border: 1.5px solid var(--border); border-radius: 9px;
+            background: var(--bg-2); display: flex; align-items: center;
+            justify-content: center; font-size: 15px; margin-top: 10px;
+            transition: all .3s; color: var(--text-3);
         }
+        .p-step[data-node="intent"][data-state="active"] .p-step-icon,
+        .p-step[data-node="intent"][data-state="done"] .p-step-icon { border-color: var(--primary); background: rgba(249,115,22,.1); color: var(--primary); box-shadow: 0 0 14px rgba(249,115,22,.25); }
+        .p-step[data-node="ssh"][data-state="active"] .p-step-icon,
+        .p-step[data-node="ssh"][data-state="done"] .p-step-icon { border-color: var(--info); background: rgba(59,130,246,.1); color: var(--info); box-shadow: 0 0 14px rgba(59,130,246,.25); }
+        .p-step[data-node="analysis"][data-state="active"] .p-step-icon,
+        .p-step[data-node="analysis"][data-state="done"] .p-step-icon { border-color: #8b5cf6; background: rgba(139,92,246,.1); color: #8b5cf6; box-shadow: 0 0 14px rgba(139,92,246,.25); }
+        .p-step[data-node="fix"][data-state="active"] .p-step-icon,
+        .p-step[data-node="fix"][data-state="done"] .p-step-icon { border-color: var(--success); background: rgba(16,185,129,.1); color: var(--success); box-shadow: 0 0 14px rgba(16,185,129,.25); }
+
+        /* Text info */
+        .p-step-info { flex: 1; min-width: 0; margin-top: 10px; }
+        .p-step-title { font-size: 12px; font-weight: 600; color: var(--text-2); transition: color .3s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .p-step-sub { font-size: 10px; color: var(--text-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .p-step-status { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
+        .p-step-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); transition: background .3s; }
+        .p-step-stat-text { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); transition: color .3s; }
+
+        .p-step[data-state="active"] .p-step-title { color: var(--text); }
+        .p-step[data-state="done"] .p-step-title { color: var(--text); }
+
+        .p-step[data-node="intent"][data-state="active"] .p-step-dot { background: var(--primary); animation: blink-dot 1s infinite; }
+        .p-step[data-node="intent"][data-state="active"] .p-step-stat-text { color: var(--primary); }
+        .p-step[data-node="intent"][data-state="done"] .p-step-dot { background: var(--primary); }
+        .p-step[data-node="intent"][data-state="done"] .p-step-stat-text { color: var(--primary); opacity: .7; }
+
+        .p-step[data-node="ssh"][data-state="active"] .p-step-dot { background: var(--info); animation: blink-dot 1s infinite; }
+        .p-step[data-node="ssh"][data-state="active"] .p-step-stat-text { color: var(--info); }
+        .p-step[data-node="ssh"][data-state="done"] .p-step-dot { background: var(--info); }
+        .p-step[data-node="ssh"][data-state="done"] .p-step-stat-text { color: var(--info); opacity: .7; }
+
+        .p-step[data-node="analysis"][data-state="active"] .p-step-dot { background: #8b5cf6; animation: blink-dot 1s infinite; }
+        .p-step[data-node="analysis"][data-state="active"] .p-step-stat-text { color: #8b5cf6; }
+        .p-step[data-node="analysis"][data-state="done"] .p-step-dot { background: #8b5cf6; }
+        .p-step[data-node="analysis"][data-state="done"] .p-step-stat-text { color: #8b5cf6; opacity: .7; }
+
+        .p-step[data-node="fix"][data-state="active"] .p-step-dot { background: var(--success); animation: blink-dot 1s infinite; }
+        .p-step[data-node="fix"][data-state="active"] .p-step-stat-text { color: var(--success); }
+        .p-step[data-node="fix"][data-state="done"] .p-step-dot { background: var(--success); }
+        .p-step[data-node="fix"][data-state="done"] .p-step-stat-text { color: var(--success); opacity: .7; }
+
+        @keyframes blink-dot { 0%,100%{opacity:1} 50%{opacity:.2} }
+        @keyframes pulse-node { 0%,100%{box-shadow:0 0 10px currentColor} 50%{box-shadow:0 0 22px currentColor} }
 
         /* Content area */
         .content { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
@@ -292,13 +344,24 @@
         }
         .stat-card {
             background: var(--bg-2); border: 1px solid var(--border);
-            border-radius: var(--r); padding: 16px; transition: .2s;
+            border-radius: var(--r); padding: 16px 18px; transition: .2s;
+            position: relative; overflow: hidden;
         }
-        .stat-card:hover { border-color: var(--border-active); transform: translateY(-1px); }
-        .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); }
-        .stat-value { font-size: 26px; font-weight: 700; color: var(--primary); margin: 4px 0; }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0;
+            height: 2px; background: transparent; transition: background .3s;
+        }
+        .stat-card:hover { border-color: var(--border-active); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+        .stat-card:hover::before { background: var(--primary); }
+        .stat-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); }
+        .stat-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -1px; line-height: 1; }
+        .stat-footer { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
         .stat-trend { font-size: 10px; color: var(--text-3); }
         .stat-trend.up { color: var(--success); }
+        .stat-bar { height: 3px; background: var(--bg-3); border-radius: 99px; margin-top: 10px; overflow: hidden; }
+        .stat-bar-fill { height: 100%; border-radius: 99px; width: 0%; transition: width .6s ease; }
 
         /* Result area */
         .result-area { display: flex; flex-direction: column; gap: 12px; }
@@ -448,13 +511,38 @@
         /* Empty state */
         .empty {
             display: flex; flex-direction: column; align-items: center;
-            justify-content: center; gap: 10px; padding: 48px;
-            background: var(--bg-2); border: 1px dashed var(--border);
+            justify-content: center; gap: 12px; padding: 56px 48px;
+            background: var(--bg-2); border: 1px solid var(--border);
             border-radius: var(--r); color: var(--text-3); text-align: center;
+            position: relative; overflow: hidden;
         }
-        .empty i { font-size: 40px; }
-        .empty h3 { font-size: 15px; color: var(--text-2); }
-        .empty p { font-size: 12px; max-width: 360px; }
+        .empty::before {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(249,115,22,.05) 0%, transparent 65%);
+            pointer-events: none;
+        }
+        .empty-icon-wrap {
+            width: 64px; height: 64px; border-radius: 16px;
+            background: var(--bg-3); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; color: var(--text-3); position: relative;
+        }
+        .empty-icon-wrap::after {
+            content: ''; position: absolute;
+            inset: -6px; border-radius: 20px;
+            border: 1px dashed var(--border); opacity: .5;
+        }
+        .empty h3 { font-size: 15px; font-weight: 600; color: var(--text-2); }
+        .empty p { font-size: 12px; max-width: 360px; line-height: 1.7; }
+        .empty-hints {
+            display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px;
+        }
+        .empty-hint {
+            font-size: 11px; padding: 4px 12px; border-radius: 99px;
+            background: var(--bg-3); border: 1px solid var(--border);
+            color: var(--text-3); cursor: pointer; transition: .15s;
+        }
+        .empty-hint:hover { border-color: var(--primary); color: var(--primary); }
 
         /* Dashboard 2-col layout */
         .dash-layout {
@@ -769,6 +857,21 @@
         </div>
 
         <div class="sidebar-footer">
+            <div style="padding:10px 12px;margin-bottom:4px;border-radius:var(--r-sm);background:var(--bg-2);border:1px solid var(--border);">
+                <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:8px;">System Status</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+                    <span style="font-size:10px;color:var(--text-2);">API Server</span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Online</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+                    <span style="font-size:10px;color:var(--text-2);">AI Engine</span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Ready</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:10px;color:var(--text-2);">Telegram Bot</span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Active</span>
+                </div>
+            </div>
             <div class="nav-item" style="color:var(--error);" onclick="showToast('Đã ngắt kết nối server','warning')">
                 <i class="fas fa-power-off"></i> Shutdown
             </div>
@@ -782,36 +885,79 @@
         <div id="tab-dashboard" class="tab-page active">
             <!-- Topbar -->
             <div class="topbar">
-                <div>
-                    <div class="topbar-title"><i class="fas fa-brain" style="color:var(--primary);margin-right:8px;"></i>Network AI Agent</div>
-                    <div class="topbar-sub">Phân tích và sửa lỗi mạng tự động với LangGraph + AI</div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <div>
+                        <div class="topbar-title"><i class="fas fa-network-wired" style="color:var(--primary);margin-right:8px;font-size:13px;"></i>Network AI Agent</div>
+                        <div class="topbar-sub">Phân tích và sửa lỗi mạng tự động · LangGraph + AI Pipeline</div>
+                    </div>
+                    <div style="width:1px;height:32px;background:var(--border);margin:0 4px;"></div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="width:7px;height:7px;border-radius:50%;background:var(--success);display:inline-block;box-shadow:0 0 6px rgba(16,185,129,.6);"></span>
+                        <span style="font-size:11px;color:var(--text-2);font-weight:500;">All Systems Operational</span>
+                    </div>
                 </div>
                 <div class="topbar-right">
-                    <span class="badge badge-sim" id="modeIndicator">SIM MODE</span>
-                    <span style="font-size:11px;color:var(--text-3);" id="clockDisplay"></span>
+                    <div style="text-align:right;">
+                        <span class="badge badge-sim" id="modeIndicator">SIM MODE</span>
+                    </div>
+                    <div style="width:1px;height:24px;background:var(--border);"></div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px;color:var(--text-2);font-family:var(--font-mono);" id="clockDisplay"></div>
+                        <div style="font-size:9px;color:var(--text-3);margin-top:1px;">LOCAL TIME</div>
+                    </div>
+                    <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;" title="Admin">AD</div>
                 </div>
             </div>
 
             <!-- Pipeline -->
             <div class="pipeline" id="pipeline">
-                <div class="p-node" data-node="intent" data-state="idle" id="pnode-intent">
-                    <div class="p-circle"><i class="fas fa-brain"></i></div>
-                    <div class="p-label">Intent</div>
+                <div class="p-step" data-node="intent" data-state="idle" id="pnode-intent">
+                    <span class="p-step-num">01</span>
+                    <div class="p-step-icon"><i class="fas fa-route"></i></div>
+                    <div class="p-step-info">
+                        <div class="p-step-title">Intent Classification</div>
+                        <div class="p-step-sub">Phân tích ngữ nghĩa & mục tiêu</div>
+                        <div class="p-step-status">
+                            <span class="p-step-dot"></span>
+                            <span class="p-step-stat-text">Idle</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-conn" id="pconn-1"></div>
-                <div class="p-node" data-node="ssh" data-state="idle" id="pnode-ssh">
-                    <div class="p-circle"><i class="fas fa-terminal"></i></div>
-                    <div class="p-label">SSH</div>
+                <div class="p-step" data-node="ssh" data-state="idle" id="pnode-ssh">
+                    <span class="p-step-num">02</span>
+                    <div class="p-step-icon"><i class="fas fa-server"></i></div>
+                    <div class="p-step-info">
+                        <div class="p-step-title">SSH Collection</div>
+                        <div class="p-step-sub">Thu thập dữ liệu thiết bị</div>
+                        <div class="p-step-status">
+                            <span class="p-step-dot"></span>
+                            <span class="p-step-stat-text">Idle</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-conn" id="pconn-2"></div>
-                <div class="p-node" data-node="analysis" data-state="idle" id="pnode-analysis">
-                    <div class="p-circle"><i class="fas fa-magnifying-glass"></i></div>
-                    <div class="p-label">Analysis</div>
+                <div class="p-step" data-node="analysis" data-state="idle" id="pnode-analysis">
+                    <span class="p-step-num">03</span>
+                    <div class="p-step-icon"><i class="fas fa-chart-bar"></i></div>
+                    <div class="p-step-info">
+                        <div class="p-step-title">AI Analysis</div>
+                        <div class="p-step-sub">Xác định nguyên nhân gốc rễ</div>
+                        <div class="p-step-status">
+                            <span class="p-step-dot"></span>
+                            <span class="p-step-stat-text">Idle</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-conn" id="pconn-3"></div>
-                <div class="p-node" data-node="fix" data-state="idle" id="pnode-fix">
-                    <div class="p-circle"><i class="fas fa-wrench"></i></div>
-                    <div class="p-label">Fix</div>
+                <div class="p-step" data-node="fix" data-state="idle" id="pnode-fix">
+                    <span class="p-step-num">04</span>
+                    <div class="p-step-icon"><i class="fas fa-screwdriver-wrench"></i></div>
+                    <div class="p-step-info">
+                        <div class="p-step-title">Auto Remediation</div>
+                        <div class="p-step-sub">Đề xuất & áp dụng giải pháp</div>
+                        <div class="p-step-status">
+                            <span class="p-step-dot"></span>
+                            <span class="p-step-stat-text">Idle</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -852,24 +998,40 @@
                 <!-- Stats -->
                 <div class="stats-row">
                     <div class="stat-card">
-                        <div class="stat-label">Total Requests</div>
+                        <div class="stat-card-head">
+                            <div class="stat-label">Total Requests</div>
+                            <div class="stat-icon" style="background:rgba(249,115,22,.1);color:var(--primary);"><i class="fas fa-arrow-trend-up"></i></div>
+                        </div>
                         <div class="stat-value" id="statReq">0</div>
-                        <div class="stat-trend">–</div>
+                        <div class="stat-bar"><div class="stat-bar-fill" id="barReq" style="background:var(--primary);"></div></div>
+                        <div class="stat-footer"><span class="stat-trend" id="trendReq">Session total</span></div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Commands Run</div>
+                        <div class="stat-card-head">
+                            <div class="stat-label">Commands Run</div>
+                            <div class="stat-icon" style="background:rgba(59,130,246,.1);color:var(--info);"><i class="fas fa-terminal"></i></div>
+                        </div>
                         <div class="stat-value" id="statCmd">0</div>
-                        <div class="stat-trend">–</div>
+                        <div class="stat-bar"><div class="stat-bar-fill" id="barCmd" style="background:var(--info);"></div></div>
+                        <div class="stat-footer"><span class="stat-trend" id="trendCmd">SSH executions</span></div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Issues Found</div>
+                        <div class="stat-card-head">
+                            <div class="stat-label">Issues Found</div>
+                            <div class="stat-icon" style="background:rgba(239,68,68,.1);color:var(--error);"><i class="fas fa-circle-exclamation"></i></div>
+                        </div>
                         <div class="stat-value" style="color:var(--error);" id="statIssues">0</div>
-                        <div class="stat-trend">active</div>
+                        <div class="stat-bar"><div class="stat-bar-fill" id="barIssues" style="background:var(--error);"></div></div>
+                        <div class="stat-footer"><span class="stat-trend" style="color:var(--error);" id="trendIssues">Active alerts</span></div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Fix Applied</div>
+                        <div class="stat-card-head">
+                            <div class="stat-label">Fixes Applied</div>
+                            <div class="stat-icon" style="background:rgba(16,185,129,.1);color:var(--success);"><i class="fas fa-shield-check"></i></div>
+                        </div>
                         <div class="stat-value" style="color:var(--success);" id="statFixes">0</div>
-                        <div class="stat-trend">–</div>
+                        <div class="stat-bar"><div class="stat-bar-fill" id="barFixes" style="background:var(--success);"></div></div>
+                        <div class="stat-footer"><span class="stat-trend up" id="trendFixes">Remediations</span></div>
                     </div>
                 </div>
 
@@ -877,9 +1039,17 @@
                 <div class="dash-layout">
                     <div id="resultArea">
                         <div class="empty" id="emptyState">
-                            <i class="fas fa-robot"></i>
-                            <h3>Chưa có phân tích nào</h3>
-                            <p>Nhập câu hỏi về mạng để bắt đầu. AI sẽ SSH vào thiết bị, phân tích và đề xuất giải pháp.</p>
+                            <div class="empty-icon-wrap">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                            <h3>Sẵn sàng phân tích mạng</h3>
+                            <p>Nhập câu hỏi bên dưới để khởi động pipeline AI. Hệ thống sẽ tự động phân loại intent, thu thập dữ liệu qua SSH, phân tích và đề xuất giải pháp.</p>
+                            <div class="empty-hints">
+                                <span class="empty-hint" onclick="setQ('Check interface status Gi0/0')">Check Interface</span>
+                                <span class="empty-hint" onclick="setQ('Troubleshoot VLAN 10 connectivity')">VLAN Troubleshoot</span>
+                                <span class="empty-hint" onclick="setQ('Show routing table summary')">Routing Table</span>
+                                <span class="empty-hint" onclick="setQ('Verify device health and uptime')">Device Health</span>
+                            </div>
                         </div>
                     </div>
                     <div class="side-panel">
@@ -1977,17 +2147,21 @@ function updateRecentList() {
 
 function resetPipeline() {
     ['intent','ssh','analysis','fix'].forEach(n => setPNode(n, 'idle'));
-    [1,2,3].forEach(i => setPConn(i, false));
 }
 
 function setPNode(name, state) {
-    document.getElementById('pnode-' + name)?.setAttribute('data-state', state);
+    const el = document.getElementById('pnode-' + name);
+    if (!el) return;
+    el.setAttribute('data-state', state);
+    const txt = el.querySelector('.p-step-stat-text');
+    if (txt) {
+        if (state === 'active') txt.textContent = 'Running...';
+        else if (state === 'done') txt.textContent = 'Complete';
+        else txt.textContent = 'Idle';
+    }
 }
 
-function setPConn(i, done) {
-    const el = document.getElementById('pconn-' + i);
-    if (el) { el.classList.toggle('done', done); }
-}
+function setPConn(i, done) { /* legacy — connectors now CSS-driven */ }
 
 function showLoading(text, sub) {
     document.getElementById('loadingText').textContent = text;
