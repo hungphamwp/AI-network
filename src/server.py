@@ -97,9 +97,11 @@ def send_telegram_alert(message: str):
         "parse_mode": "Markdown"
     }
     try:
-        requests.post(url, json=payload, timeout=5)
+        r = requests.post(url, json=payload, timeout=5)
+        return r.ok
     except Exception as e:
         print(f"Lỗi gửi Telegram: {e}")
+        return False
 
 # Đảm bảo có thể import các package trong src từ thư mục gốc
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

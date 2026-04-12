@@ -5,8 +5,9 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Thêm đường dẫn gốc vào sys.path để import từ src
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Thêm thư mục gốc project vào sys.path để import từ src/
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, PROJECT_ROOT)
 
 from src.agent.graph import run_agent
 from src.tools.ssh_netmiko import SSHTool
