@@ -29,13 +29,13 @@ def create_network_agent():
     
     return workflow.compile()
 
-def run_agent(query: str, preferred_model: str = None):
+def run_agent(query: str, preferred_model: str = None, simulation: bool = False):
     """ Hàm helper khởi chạy Agent truyền vào input tự nhiên. """
     app = create_network_agent()
     
     initial_state = {
         "user_query": query,
-        "device_ip": "",
+        "device_ips": [],
         "required_commands": [],
         "intent_summary": "",
         "ssh_raw_output": {},
@@ -44,7 +44,8 @@ def run_agent(query: str, preferred_model: str = None):
         "suggested_fix_commands": [],
         "history": [],
         "agent_logs": [],
-        "preferred_model": preferred_model
+        "preferred_model": preferred_model,
+        "simulation": simulation
     }
 
     

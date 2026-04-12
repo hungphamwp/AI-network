@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # --- Models cho Output Parser ---
 class IntentOutput(BaseModel):
-    device_ip: str = Field(description="Địa chỉ IP của thiết bị từ câu lệnh (ví dụ: 192.168.1.1). Điền '192.168.1.1' nếu không tìm thấy IP cụ thể.", default="192.168.1.1")
+    device_ips: list[str] = Field(description="Danh sách các địa chỉ IP của thiết bị mạng cần kiểm tra. Nếu không thấy IP nào cụ thể, hãy trả về ['192.168.1.1'].", default=["192.168.1.1"])
     commands: list[str] = Field(description="Danh sách các lệnh Cisco show cần thiết để chẩn đoán lỗi (VD: ['show vlan brief', 'show logging'])")
     intent_summary: str = Field(description="Mô tả tóm tắt mục đích kiểm tra.")
 
@@ -80,15 +80,16 @@ def parse_intent(state: AgentState) -> dict:
         ("user", "Yêu cầu: {query}")
     ])
     
-    # Predefined model fallbacks — Ưu tiên các model Google Gemini trước vì giới hạn rộng rãi hơn
+    # Predefined model fallbacks — Ưu tiên OpenRouter theo yêu cầu người dùng
     models = [
-        "gemini/gemini-2.0-flash",
-        "gemini/gemini-2.5-flash",
-        "gemini/gemini-2.5-pro",
-        "gemini/gemini-flash-latest",
         "openrouter/meta-llama/llama-3.3-70b-instruct:free",
         "openrouter/google/gemma-3-27b-it:free",
         "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "gemini/gemini-2.0-flash",
+        "gemini/gemini-2.5-flash",
+        "groq/llama-3.3-70b-versatile",
+        "gemini/gemini-2.5-pro",
+        "gemini/gemini-flash-latest",
         "openrouter/qwen/qwen3-coder:free",
         "openrouter/meta-llama/llama-3.2-3b-instruct:free",
     ]
@@ -117,7 +118,7 @@ def parse_intent(state: AgentState) -> dict:
                 except: 
                     pass # Fallback for old Python
                 return {
-                    "device_ip": result.device_ip,
+                    "device_ips": result.device_ips,
                     "required_commands": result.commands,
                     "intent_summary": result.intent_summary,
                     "agent_logs": logs + [f"Sử dụng AI Model (Siêu tốc độ): {model_full_name}"]
@@ -127,7 +128,7 @@ def parse_intent(state: AgentState) -> dict:
                 logs.append(f"Model {model_full_name} bỏ qua: {raw_err}")
             
     return {
-        "device_ip": "192.168.1.1",
+        "device_ips": ["192.168.1.1"],
         "required_commands": ["show vlan brief", "show ip interface brief", "show log"],
         "intent_summary": "Lỗi API, tự động kích hoạt kiểm tra tổng quát (Fallback Mode).",
         "agent_logs": logs + ["⚠️ TẤT CẢ MODEL AI ĐỀU LỖI. Hãy kiểm tra lại API Key và Region."]
@@ -135,20 +136,33 @@ def parse_intent(state: AgentState) -> dict:
 
 def connect_and_execute(state: AgentState) -> dict:
     """
-    Node 2: SSH vào thiết bị mạng theo IP và chạy các lệnh.
+    Node 2: SSH vào danh sách thiết bị mạng và chạy các lệnh.
     """
     logger.info("Node: connect_and_execute")
-    device_ip = state.get("device_ip", "192.168.1.1")
+    device_ips = state.get("device_ips", ["192.168.1.1"])
     commands = state.get("required_commands", [])
+    simulation = state.get("simulation", False)
     
     if not commands:
         return {"ssh_raw_output": {}, "agent_logs": ["Bỏ qua SSH do không có lệnh yêu cầu."]}
+
+    import concurrent.futures
+    all_outputs = {}
+    logs = []
+
+    def fetch_from_device(ip):
+        return ip, SSHTool.execute_commands(ip, commands, simulation=simulation)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(device_ips)) as executor:
+        future_to_ip = {executor.submit(fetch_from_device, ip): ip for ip in device_ips}
+        for future in concurrent.futures.as_completed(future_to_ip):
+            ip, results = future.result()
+            all_outputs[ip] = results
+            logs.append(f"Đã quét xong thiết bị: {ip}")
         
-    outputs = SSHTool.execute_commands(device_ip, commands)
-    
     return {
-        "ssh_raw_output": outputs,
-        "agent_logs": [f"Đã thực thi thành công {len(commands)} lệnh show qua SSH."]
+        "ssh_raw_output": all_outputs,
+        "agent_logs": logs
     }
 
 def analyze_and_diagnose(state: AgentState) -> dict:
@@ -161,22 +175,28 @@ def analyze_and_diagnose(state: AgentState) -> dict:
     api_key = os.getenv("GOOGLE_API_KEY")
     
     parser = PydanticOutputParser(pydantic_object=DiagnoseOutput)
-    output_text = "\n---\n".join([f"Lệnh: {cmd}\nKết quả:\n{out}" for cmd, out in raw_outputs.items()])
+    
+    # Gộp tất cả output từ các device vào 1 string để AI phân tích tương quan
+    output_text = ""
+    for ip, results in raw_outputs.items():
+        output_text += f"\n=== THIẾT BỊ: {ip} ===\n"
+        output_text += "\n---\n".join([f"Lệnh: {cmd}\nKết quả:\n{out}" for cmd, out in results.items()])
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Bạn là một AI Cisco Expert Level 3 (CCIE). Ai đó đã chạy các câu lệnh bắt bệnh hệ thống và trả về Text Outputs.\n\nNhiệm vụ của bạn: Phân tích chi tiết lỗi, mức độ tổn hại (severity) và gợi ý danh sách chuẩn các câu lệnh cấu hình (Config fix) để sửa lỗi nếu cần. TOÀN BỘ PHÂN TÍCH (bao gồm root_cause) PHẢI ĐƯỢC VIẾT BẰNG TIẾNG VIỆT.\n\n{format_instructions}"),
-        ("user", "Yêu cầu gốc từ quản trị: {query}\n\n=======================\nOUTPUTS TỪ SWITCH:\n{outputs}")
+        ("system", "Bạn là một AI Cisco Expert Level 3 (CCIE). Ai đó đã chạy các câu lệnh bắt bệnh trên MỘT HOẶC NHIỀU thiết bị mạng.\n\nNhiệm vụ của bạn: Phân tích chi tiết lỗi, tìm mối tương quan giữa các thiết bị nếu có, đánh giá mức độ tổn hại (severity) và gợi ý danh sách chuẩn các câu lệnh cấu hình (Config fix) để sửa lỗi. TOÀN BỘ PHÂN TÍCH (bao gồm root_cause) PHẢI ĐƯỢC VIẾT BẰNG TIẾNG VIỆT.\n\n{format_instructions}"),
+        ("user", "Yêu cầu gốc từ quản trị: {query}\n\n=======================\nOUTPUTS TỪ CÁC THIẾT BỊ:\n{outputs}")
     ])
     
-    # Predefined model fallbacks — Ưu tiên các model Google Gemini trước vì giới hạn rộng rãi hơn
+    # Predefined model fallbacks — Ưu tiên OpenRouter theo yêu cầu người dùng
     models = [
-        "gemini/gemini-2.0-flash",
-        "gemini/gemini-2.5-flash",
-        "gemini/gemini-2.5-pro",
-        "gemini/gemini-flash-latest",
         "openrouter/meta-llama/llama-3.3-70b-instruct:free",
         "openrouter/google/gemma-3-27b-it:free",
         "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "gemini/gemini-2.0-flash",
+        "gemini/gemini-2.5-flash",
+        "groq/llama-3.3-70b-versatile",
+        "gemini/gemini-2.5-pro",
+        "gemini/gemini-flash-latest",
         "openrouter/qwen/qwen3-coder:free",
         "openrouter/meta-llama/llama-3.2-3b-instruct:free",
     ]

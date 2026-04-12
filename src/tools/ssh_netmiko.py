@@ -27,7 +27,8 @@ class SSHTool:
     
     @staticmethod
     def _execute_mock(device_ip: str, commands: List[str]) -> Dict[str, str]:
-        """Chạy giả lập lệnh SSH cho mục đích test nếu chưa có Lab."""
+        """Chạy giả lập lệnh SSH cho mục đích test."""
+        import time; time.sleep(1.5) # Fake network delay
         logger.info(f"[MOCK] Kết nối tới {device_ip}")
         results = {}
         for cmd in commands:
@@ -43,13 +44,13 @@ class SSHTool:
         return results
 
     @staticmethod
-    def execute_commands(device_ip: str, commands: List[str], device_type: str = "cisco_ios", username: str = None, password: str = None) -> Dict[str, str]:
+    def execute_commands(device_ip: str, commands: List[str], device_type: str = "cisco_ios", username: str = None, password: str = None, simulation: bool = False) -> Dict[str, str]:
         """
         Thực thi danh sách các lệnh show qua SSH trên thiết bị.
         Trả về dictionary { "command_1": "output_1", "command_2": "output_2" }.
         """
-        if MOCK_SSH or not NETMIKO_AVAILABLE:
-            if not NETMIKO_AVAILABLE:
+        if MOCK_SSH or not NETMIKO_AVAILABLE or simulation:
+            if not NETMIKO_AVAILABLE and not simulation:
                 logger.warning("Netmiko is not installed. Falling back to MOCK mode.")
             return SSHTool._execute_mock(device_ip, commands)
         
@@ -97,13 +98,14 @@ class SSHTool:
         return results
 
     @staticmethod
-    def apply_config(device_ip: str, config_commands: List[str], device_type: str = "cisco_ios", username: str = None, password: str = None) -> str:
+    def apply_config(device_ip: str, config_commands: List[str], device_type: str = "cisco_ios", username: str = None, password: str = None, simulation: bool = False) -> str:
         """
         Gửi các lệnh cấu hình (configuration commands) tới thiết bị.
         Returns message kết quả.
         """
-        if MOCK_SSH or not NETMIKO_AVAILABLE:
+        if MOCK_SSH or not NETMIKO_AVAILABLE or simulation:
             logger.info(f"[MOCK] Pushing config to {device_ip}:\n" + "\n".join(config_commands))
+            import time; time.sleep(1) # Fake delay
             return "Config applied successfully (MOCK)."
             
         user = username or DEFAULT_USERNAME

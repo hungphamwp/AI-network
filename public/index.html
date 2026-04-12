@@ -1,3073 +1,435 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetAI Agent — Trợ lý AI Quản trị Mạng</title>
-    <meta name="description" content="AI Network Agent - Hệ thống phân tích và sửa lỗi mạng tự động sử dụng LangGraph, Gemini AI và Netmiko SSH">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <title>NetAI - Modernize Your Network for the AI Era</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* ═══════════════════════════════════════════════════════════
-           DESIGN SYSTEM — CSS Variables & Reset
-           ═══════════════════════════════════════════════════════════ */
-        :root {
-            /* Primary palette */
-            --primary: #f97316;
-            --primary-dim: #ea580c;
-            --primary-glow: rgba(249, 115, 22, 0.25);
-            --primary-soft: rgba(249, 115, 22, 0.1);
-
-            /* Accent colors for pipeline nodes */
-            --node-intent: #f97316;  /* orange */
-            --node-ssh: #3b82f6;     /* blue */
-            --node-analysis: #8b5cf6; /* purple */
-            --node-fix: #10b981;      /* green */
-            --node-apply: #ef4444;    /* red */
-
-            /* Semantic */
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --info: #3b82f6;
-
-            /* Neutrals */
-            --bg-deep: #161616;
-            --bg-base: #1c1c1c;
-            --bg-surface: #262628;
-            --bg-elevated: #2f2f31;
-            --bg-card: rgba(38, 38, 40, 0.8);
-            --border: #38383a;
-            --border-active: rgba(249, 115, 22, 0.4);
-            --text-primary: #f4f4f5;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-
-            /* Glass */
-            --glass-bg: rgba(22, 22, 22, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.05);
-            --glass-blur: 15px;
-
-            /* Spacing */
-            --space-xs: 4px;
-            --space-sm: 8px;
-            --space-md: 16px;
-            --space-lg: 24px;
-            --space-xl: 32px;
-            --space-2xl: 48px;
-
-            /* Radius */
-            --radius-sm: 6px;
-            --radius-md: 10px;
-            --radius-lg: 16px;
-            --radius-xl: 24px;
-            --radius-full: 9999px;
-
-            /* Shadow */
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
-            --shadow-glow: 0 0 30px var(--primary-glow);
-
-            /* Transitions */
-            --transition-fast: 0.15s ease;
-            --transition: 0.25s ease;
-            --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+        body { 
+            background: linear-gradient(135deg, #0e051c 0%, #1a0833 50%, #290f48 100%);
+            color: #fff; min-height: 100vh; overflow-x: hidden;
         }
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { font-size: 14px; scroll-behavior: smooth; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-deep);
-            color: var(--text-primary);
-            min-height: 100vh;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
+        .navbar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 24px 60px; max-width: 1400px; margin: 0 auto;
         }
-
-        /* Animated background */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: 
-                radial-gradient(circle at 20% 30%, rgba(249, 115, 22, 0.03) 0%, transparent 40%),
-                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.02) 0%, transparent 40%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        /* ═══════════════════════════════════════════════════════════
-           LAYOUT
-           ═══════════════════════════════════════════════════════════ */
-        .app-wrapper {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            grid-template-rows: auto 1fr;
-            min-height: 100vh;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* ── SIDEBAR ───────────────────────────────────────────── */
-        .sidebar {
-            grid-row: 1 / -1;
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--glass-blur));
-            border-right: 1px solid var(--glass-border);
-            padding: var(--space-lg);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-lg);
-            overflow-y: auto;
-            position: sticky;
-            top: 0;
-            height: 100vh;
-        }
-
-        .sidebar-brand {
-            display: flex;
-            align-items: center;
-            gap: var(--space-md);
-            padding: var(--space-lg);
-            border-bottom: 1px solid var(--border);
-        }
-        .brand-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            background: var(--primary-dim);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            color: #fff;
-        }
-        .brand-text h1 {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        .brand-text span {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .nav-item {
-            padding: 12px var(--space-lg);
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            color: var(--text-secondary);
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            margin: 2px 8px;
-            border-radius: 8px;
-        }
-        .nav-item:hover {
-            color: var(--text-primary);
-            background: rgba(255, 255, 255, 0.03);
-        }
-        .nav-item.active {
-            background: rgba(249, 115, 22, 0.08);
-            color: var(--primary);
-        }
-        .nav-icon {
-            font-size: 14px;
-            width: 20px;
-            text-align: center;
-            opacity: 0.7;
-        }
-        .nav-item.active .nav-icon { opacity: 1; }
+        .logo { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        .logo span { font-size: 13px; font-weight: 500; opacity: 0.8; letter-spacing: 0.5px;}
+        .logo i { color: #d67dfe; font-size: 28px; }
         
-        /* Model Selection styles */
-        .model-item {
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .model-item:hover {
-            background: var(--bg-elevated);
-            border-color: var(--primary-dim);
-        }
-        .model-item.active {
-            background: var(--primary-soft);
-            border-color: var(--primary);
-            box-shadow: 0 0 10px var(--primary-glow);
-        }
-        .model-info h4 { font-size: 13px; color: #fff; margin-bottom: 2px; }
-        .model-info p { font-size: 11px; color: var(--text-muted); }
-        .quota-bar { width: 60px; height: 4px; background: #111; border-radius: 4px; margin-top: 4px; overflow: hidden; }
-        .quota-fill { height: 100%; background: var(--primary); }
+        .nav-links { display: flex; gap: 32px; font-size: 14px; font-weight: 500; }
+        .nav-links a { color: #fff; text-decoration: none; cursor: pointer; transition: 0.2s;}
+        .nav-links a:hover { color: #d67dfe; }
+        .nav-right { display: flex; align-items: center; gap: 24px; }
+        .btn-login { background: #fff; color: #1a0833; padding: 10px 28px; border-radius: 30px; font-weight: 600; text-decoration: none; cursor: pointer; transition: 0.3s; border: none; font-size: 14px;}
+        .btn-login:hover { background: #f0f0f0; transform: translateY(-1px); }
+        .btn-contact { color: #d67dfe; text-decoration: none; font-size: 14px; font-weight: 600; }
 
-        /* Dashboard Specific */
-        .dashboard-header {
-            padding: var(--space-lg) var(--space-xl);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .dashboard-info h2 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-        .dashboard-info p { font-size: 12px; color: var(--text-muted); }
+        .hero { text-align: center; max-width: 900px; margin: 100px auto 40px; padding: 0 20px;}
+        .hero h1 { font-size: 64px; line-height: 1.15; font-weight: 800; margin-bottom: 24px;}
+        .hero h1 .highlight { color: #ff5e5e; }
+        .hero p { font-size: 18px; color: #b3a1cc; line-height: 1.6; max-width: 700px; margin: 0 auto; }
 
-        .sub-nav {
-            display: flex;
-            gap: var(--space-lg);
-            padding: 0 var(--space-xl);
-            margin-bottom: var(--space-lg);
-            border-bottom: 1px solid var(--border);
+        .chat-widget-container {
+            max-width: 720px; margin: 60px auto; background: white; border-radius: 20px;
+            padding: 30px; color: #111; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            position: relative;
+            transform: translateY(0); transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .sub-nav-item {
-            padding: var(--space-sm) 0 var(--space-md);
-            color: var(--text-muted);
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
+        .chat-widget-container:hover { transform: translateY(-5px); box-shadow: 0 30px 60px rgba(0,0,0,0.6); }
+
+        .cw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;}
+        .cw-header h2 { font-size: 28px; font-weight: 800; }
+        .cw-badge { background: #ffeeee; color: #ff5e5e; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 13px;}
+        .cw-powered { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #666; font-weight: 600; margin-bottom: 24px;}
+        
+        .cw-input-box {
+            background: #linear-gradient(90deg, #1a0833, #0e051c);
+            background: #111;
+            border-radius: 40px; display: flex; align-items: center; padding: 8px 12px 8px 24px;
+        }
+        .cw-input-box input {
+            flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 16px;
+        }
+        .cw-input-box button {
+            background: rgba(255, 94, 94, 0.2); width: 44px; height: 44px; border-radius: 50%;
+            border: none; color: #ff5e5e; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 16px; transition: 0.2s;
+        }
+        .cw-input-box button:hover { background: #ff5e5e; color: #fff; }
+
+        /* Login Modal Background */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+            opacity: 0; transition: 0.3s;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        
+        .login-box {
+            background: #fff; color: #111; width: 400px; border-radius: 16px; padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5); transform: translateY(20px); transition: 0.3s;
+        }
+        .modal-overlay.active .login-box { transform: translateY(0); }
+
+        .login-box h2 { font-size: 24px; margin-bottom: 8px; font-weight: 800; }
+        .login-box p { color: #666; font-size: 14px; margin-bottom: 24px; }
+        
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #444;}
+        .input-group input { 
+            width: 100%; padding: 12px 16px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none;
             transition: 0.2s;
         }
-        .sub-nav-item.active {
-            color: #fff;
-            border-color: var(--primary);
-        }
+        .input-group input:focus { border-color: #290f48; }
 
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: var(--space-md);
-            padding: 0 var(--space-xl) var(--space-xl);
-        }
-        .metric-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            transition: 0.3s;
-        }
-        .metric-card:hover { 
-            border-color: rgba(249, 115, 22, 0.3);
-            transform: translateY(-2px);
-        }
-        .metric-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .metric-value { font-size: 28px; font-weight: 700; color: var(--primary); }
-        .metric-trend { font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
-        .trend-up { color: var(--success); }
-
-        .dashboard-layout {
-            display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: var(--space-lg);
-            padding: 0 var(--space-xl) var(--space-xl);
-            flex: 1;
-        }
-        .main-panel { display: flex; flex-direction: column; gap: var(--space-lg); }
-        .side-panel {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-        }
-        .panel-header {
-            padding: 16px;
-            border-bottom: 1px solid var(--border);
-            font-size: 13px;
-            font-weight: 600;
-            color: #fff;
-        }
-        .panel-content { padding: 16px; flex: 1; }
-
-        .log-entry {
-            display: flex;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            font-size: 12px;
-        }
-        .log-entry:last-child { border: none; }
-        .log-time { color: var(--text-muted); font-family: monospace; width: 60px; }
-        .log-msg { color: var(--text-secondary); flex: 1; }
-
-        .input-wrapper {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        /* Sidebar sections */
-        .sidebar-section { display: flex; flex-direction: column; gap: var(--space-sm); }
-        .sidebar-section-title {
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            color: var(--text-muted);
-            margin-bottom: var(--space-xs);
-        }
-
-        /* Device list */
-        .device-card {
-            display: flex;
-            align-items: center;
-            gap: var(--space-md);
-            padding: var(--space-md);
-            border-radius: var(--radius-md);
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: var(--transition);
-            position: relative;
-        }
-        .device-card:hover {
-            background: var(--primary-soft);
-            border-color: var(--border);
-        }
-        .device-card.active {
-            background: var(--primary-soft);
-            border-color: var(--border-active);
-        }
-        .device-card.active::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 60%;
-            border-radius: 0 3px 3px 0;
-            background: var(--primary);
-        }
-        .device-icon {
-            width: 36px; height: 36px;
-            border-radius: var(--radius-sm);
-            background: var(--bg-elevated);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-        .device-info { flex: 1; min-width: 0; }
-        .device-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .device-ip { font-size: 10px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
-        .device-status {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .device-status.up { background: var(--success); box-shadow: 0 0 6px rgba(74, 222, 128, 0.5); }
-        .device-status.warning { background: var(--warning); box-shadow: 0 0 6px rgba(251, 191, 36, 0.5); }
-        .device-status.down { background: var(--error); box-shadow: 0 0 6px rgba(248, 113, 113, 0.5); }
-        .device-status.up, .device-status.warning { animation: pulse-status 2s infinite; }
-
-        @keyframes pulse-status {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Settings toggle */
-        .toggle-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: var(--space-sm) 0;
-        }
-        .toggle-row label { font-size: 12px; color: var(--text-secondary); }
-        .toggle-switch {
-            position: relative;
-            width: 40px; height: 22px;
-            cursor: pointer;
-        }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider {
-            position: absolute; inset: 0;
-            background: var(--bg-elevated);
-            border-radius: var(--radius-full);
-            border: 1px solid var(--border);
-            transition: var(--transition);
-        }
-        .toggle-slider::before {
-            content: '';
-            position: absolute;
-            left: 2px; top: 2px;
-            width: 16px; height: 16px;
-            border-radius: 50%;
-            background: var(--text-muted);
-            transition: var(--transition);
-        }
-        .toggle-switch input:checked + .toggle-slider {
-            background: var(--primary-dim);
-            border-color: var(--primary);
-        }
-        .toggle-switch input:checked + .toggle-slider::before {
-            transform: translateX(18px);
-            background: #fff;
-        }
-
-        .autofix-warn {
-            display: none;
-            font-size: 10px;
-            color: var(--warning);
-            padding: var(--space-xs) var(--space-sm);
-            background: rgba(251, 191, 36, 0.08);
-            border-radius: var(--radius-sm);
-            border-left: 2px solid var(--warning);
-            margin-top: var(--space-xs);
-        }
-        .autofix-warn.show { display: block; }
-
-        /* Sidebar stats */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-sm);
-        }
-        .stat-item {
-            padding: var(--space-sm) var(--space-md);
-            background: var(--bg-elevated);
-            border-radius: var(--radius-sm);
-            text-align: center;
-        }
-        .stat-value { font-size: 18px; font-weight: 700; color: var(--primary); }
-        .stat-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* ── MAIN CONTENT ─────────────────────────────────────── */
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        /* Top bar */
-        .topbar {
-            padding: var(--space-md) var(--space-xl);
-            border-bottom: 1px solid var(--border);
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--glass-blur));
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .topbar-left h2 {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        .topbar-left p {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-        .topbar-right { display: flex; align-items: center; gap: var(--space-md); }
-        .topbar-badge {
-            padding: 4px 12px;
-            border-radius: var(--radius-full);
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-        .badge-online { background: rgba(74, 222, 128, 0.1); color: var(--success); border: 1px solid rgba(74, 222, 128, 0.2); }
-        .badge-sim    { background: rgba(96, 165, 250, 0.1); color: var(--info); border: 1px solid rgba(96, 165, 250, 0.2); }
-
-        /* ── PIPELINE VISUALIZATION ──────────────────────────── */
-        .pipeline-section {
-            padding: var(--space-lg) var(--space-xl);
-            border-bottom: 1px solid var(--border);
-        }
-        .pipeline-track {
-            display: flex;
-            align-items: center;
-            gap: 0;
-            justify-content: center;
-            padding: var(--space-md) 0;
-        }
-        .pipeline-node {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: var(--space-sm);
-            position: relative;
-            flex: 0 0 auto;
-            cursor: default;
-        }
-        .pipeline-node-circle {
-            width: 52px; height: 52px;
-            border-radius: var(--radius-md);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 22px;
-            border: 2px solid var(--border);
-            background: var(--bg-surface);
-            transition: var(--transition-slow);
-            position: relative;
-        }
-        .pipeline-node-circle::after {
-            content: '';
-            position: absolute;
-            inset: -4px;
-            border-radius: calc(var(--radius-md) + 2px);
-            opacity: 0;
-            transition: var(--transition-slow);
-        }
-        .pipeline-node-label {
-            font-size: 10px;
-            color: var(--text-muted);
-            font-weight: 500;
-            text-align: center;
-            white-space: nowrap;
-        }
-        .pipeline-connector {
-            width: 48px; height: 2px;
-            background: var(--border);
-            position: relative;
-            margin-bottom: 28px;
-            transition: var(--transition-slow);
-        }
-        .pipeline-connector::after {
-            content: '';
-            position: absolute;
-            right: -4px; top: 50%;
-            transform: translateY(-50%);
-            width: 0; height: 0;
-            border-left: 6px solid var(--border);
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
-            transition: var(--transition-slow);
-        }
-
-        /* Pipeline node states */
-        .pipeline-node[data-state="active"] .pipeline-node-circle {
-            border-color: currentColor;
-            box-shadow: 0 0 20px currentColor;
-            animation: node-pulse 1.5s infinite;
-        }
-        .pipeline-node[data-state="active"] .pipeline-node-circle::after {
-            opacity: 0.15;
-            background: currentColor;
-            filter: blur(8px);
-        }
-        .pipeline-node[data-state="active"] .pipeline-node-label {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        .pipeline-node[data-state="done"] .pipeline-node-circle {
-            border-color: currentColor;
-            background: currentColor;
-        }
-        .pipeline-node[data-state="done"] .pipeline-node-circle span {
-            filter: brightness(0) invert(1);
-        }
-        .pipeline-node[data-state="done"] .pipeline-node-label {
-            color: currentColor;
-        }
-        .pipeline-node[data-state="error"] .pipeline-node-circle {
-            border-color: var(--error);
-            background: rgba(248, 113, 113, 0.15);
-        }
-
-        /* Done connectors */
-        .pipeline-connector.done {
-            background: linear-gradient(90deg, var(--primary), var(--node-ssh));
-        }
-        .pipeline-connector.done::after { border-left-color: var(--primary); }
-
-        @keyframes node-pulse {
-            0%, 100% { box-shadow: 0 0 15px currentColor; }
-            50% { box-shadow: 0 0 30px currentColor; }
-        }
-
-        /* Node-specific colors */
-        .pipeline-node[data-node="intent"]   { color: var(--node-intent); }
-        .pipeline-node[data-node="ssh"]      { color: var(--node-ssh); }
-        .pipeline-node[data-node="analysis"] { color: var(--node-analysis); }
-        .pipeline-node[data-node="fix"]      { color: var(--node-fix); }
-        .pipeline-node[data-node="apply"]    { color: var(--node-apply); }
-
-        /* ── CHAT / QUERY AREA ────────────────────────────────── */
-        .content-area {
-            flex: 1;
-            padding: var(--space-xl);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-xl);
-            overflow-y: auto;
-        }
-
-        /* Quick commands */
-        .quick-commands {
-            display: flex;
-            gap: var(--space-sm);
-            flex-wrap: wrap;
-        }
-        .quick-cmd {
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-full);
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            font-size: 12px;
-            cursor: pointer;
-            transition: var(--transition);
-            white-space: nowrap;
-            font-family: 'Inter', sans-serif;
-        }
-        .quick-cmd:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-            background: var(--primary-soft);
-            transform: translateY(-1px);
-        }
-
-        /* Input area */
-        .input-area {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: var(--space-md);
-            transition: var(--transition);
-            position: relative;
-        }
-        .input-area:focus-within {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
-        }
-        .input-area textarea {
-            width: 100%;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--text-primary);
-            font-family: 'Inter', sans-serif;
-            font-size: 14px;
-            resize: none;
-            min-height: 48px;
-            max-height: 120px;
-            line-height: 1.6;
-        }
-        .input-area textarea::placeholder { color: var(--text-muted); }
-        .input-actions {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: var(--space-sm);
-        }
-        .input-hint {
-            font-size: 10px;
-            color: var(--text-muted);
-        }
-        .input-buttons { display: flex; gap: var(--space-sm); }
-
-        /* Model picker in chat bar */
-        .model-picker-wrap { position: relative; }
-        .model-picker-btn {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: var(--bg-elevated); border: 1px solid var(--border);
-            border-radius: var(--radius-full); padding: 5px 12px;
-            font-size: 11px; color: var(--text-secondary); cursor: pointer;
-            transition: var(--transition); white-space: nowrap; max-width: 260px;
-        }
-        .model-picker-btn:hover { border-color: var(--primary); color: var(--primary); }
-        .model-picker-btn .mpb-name {
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;
-        }
-        .model-picker-btn .mpb-icon { font-size: 9px; opacity: 0.7; flex-shrink: 0; }
-        .model-picker-btn.expired-model { border-color: var(--warning); color: var(--warning); }
-        .model-dropdown {
-            position: absolute; bottom: calc(100% + 8px); left: 0;
-            width: 320px; background: var(--bg-elevated); border: 1px solid var(--border);
-            border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-            z-index: 999; overflow: hidden; display: none;
-        }
-        .model-dropdown.open { display: block; animation: fadeInUp 0.15s ease; }
-        @keyframes fadeInUp { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform:none; } }
-        .model-dropdown-header {
-            padding: 10px 14px; border-bottom: 1px solid var(--border);
-            font-size: 11px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em;
-        }
-        .model-group { border-bottom: 1px solid var(--border); }
-        .model-group:last-child { border-bottom: none; }
-        .model-group-label {
-            padding: 6px 14px; font-size: 10px; font-weight: 700;
-            color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase;
-            background: rgba(0,0,0,0.15);
-        }
-        .model-option {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 8px 14px; cursor: pointer; transition: var(--transition-fast);
-            font-size: 12px; color: var(--text-secondary); gap: 8px;
-        }
-        .model-option:hover { background: var(--bg-surface); color: var(--text-primary); }
-        .model-option.active { color: var(--primary); background: var(--primary-soft); }
-        .model-option.expired { opacity: 0.5; cursor: not-allowed; }
-        .model-option.expired:hover { background: transparent; color: var(--text-muted); }
-        .model-opt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-        .model-opt-badge {
-            font-size: 9px; padding: 2px 6px; border-radius: var(--radius-full);
-            background: var(--warning); color: #000; font-weight: 700; flex-shrink: 0;
-        }
-        .model-opt-check { color: var(--primary); font-size: 10px; flex-shrink: 0; }
-        .model-dropdown-scroll { max-height: 280px; overflow-y: auto; }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-sm);
-            padding: var(--space-sm) var(--space-lg);
-            border-radius: var(--radius-md);
-            border: 1px solid transparent;
-            font-family: 'Inter', sans-serif;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-dim), var(--primary));
-            color: #fff;
-            box-shadow: 0 2px 12px var(--primary-glow);
-        }
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px var(--primary-glow);
-        }
-        .btn-primary:active { transform: translateY(0); }
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .btn-ghost {
-            background: transparent;
-            color: var(--text-secondary);
-            border-color: var(--border);
-        }
-        .btn-ghost:hover {
-            background: var(--bg-elevated);
-            color: var(--text-primary);
-        }
-        .btn-danger {
-            background: rgba(248, 113, 113, 0.1);
-            color: var(--error);
-            border-color: rgba(248, 113, 113, 0.2);
-        }
-        .btn-danger:hover { background: rgba(248, 113, 113, 0.2); }
-
-        /* ── RESULTS AREA ─────────────────────────────────────── */
-        .results-container { display: flex; flex-direction: column; gap: var(--space-lg); }
-
-        /* Tab navigation */
-        .tabs {
-            display: flex;
-            gap: 2px;
-            background: var(--bg-surface);
-            border-radius: var(--radius-md);
-            padding: 3px;
-            border: 1px solid var(--border);
-        }
-        .tab-btn {
-            flex: 1;
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-sm);
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-family: 'Inter', sans-serif;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: var(--transition);
-            white-space: nowrap;
-        }
-        .tab-btn:hover { color: var(--text-secondary); }
-        .tab-btn.active {
-            background: var(--bg-elevated);
-            color: var(--primary);
-            box-shadow: var(--shadow-sm);
-        }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        /* Result cards */
-        .result-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-        }
-        .result-card-header {
-            padding: var(--space-md) var(--space-lg);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .result-card-header h3 {
-            font-size: 13px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-        }
-        .result-card-body { padding: var(--space-lg); }
-
-        /* Summary metrics row */
-        .metrics-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: var(--space-md);
-        }
-        .metric-card {
-            padding: var(--space-md);
-            background: var(--bg-elevated);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border);
-            text-align: center;
-            transition: var(--transition);
-        }
-        .metric-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
-        }
-        .metric-icon { font-size: 20px; margin-bottom: var(--space-xs); }
-        .metric-value { font-size: 22px; font-weight: 700; color: var(--primary); }
-        .metric-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
-
-        /* Issues */
-        .issue-item {
-            display: flex;
-            gap: var(--space-md);
-            padding: var(--space-md);
-            background: var(--bg-elevated);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border);
-            margin-bottom: var(--space-sm);
-            transition: var(--transition);
-        }
-        .issue-item:hover { border-color: var(--border-active); }
-        .issue-badge {
-            padding: 2px 10px;
-            border-radius: var(--radius-full);
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            flex-shrink: 0;
-            height: fit-content;
-        }
-        .issue-badge.critical { background: rgba(248,113,113,0.15); color: var(--error); }
-        .issue-badge.error    { background: rgba(251,146,60,0.15); color: var(--node-fix); }
-        .issue-badge.warning  { background: rgba(251,191,36,0.15); color: var(--warning); }
-        .issue-badge.info     { background: rgba(96,165,250,0.15); color: var(--info); }
-        .issue-desc { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
-        .issue-cause { font-size: 11px; color: var(--text-secondary); }
-
-        /* SSH Output */
-        .ssh-output-block {
-            margin-bottom: var(--space-md);
-        }
-        .ssh-cmd-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: var(--space-sm) var(--space-md);
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            border-bottom: none;
-            border-radius: var(--radius-md) var(--radius-md) 0 0;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        .ssh-cmd-header:hover { background: rgba(0, 212, 170, 0.05); }
-        .ssh-cmd-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-        }
-        .ssh-cmd-meta { font-size: 10px; color: var(--text-muted); }
-        .ssh-output-pre {
-            background: #080c14;
-            border: 1px solid var(--border);
-            border-top: none;
-            border-radius: 0 0 var(--radius-md) var(--radius-md);
-            padding: var(--space-md);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            line-height: 1.8;
-            color: var(--text-secondary);
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .ssh-output-pre.collapsed {
-            max-height: 0;
-            padding: 0 var(--space-md);
-            overflow: hidden;
-        }
-
-        /* Fix commands */
-        .fix-item {
-            display: flex;
-            align-items: flex-start;
-            gap: var(--space-md);
-            padding: var(--space-md);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border);
-            background: var(--bg-elevated);
-            margin-bottom: var(--space-sm);
-            transition: var(--transition);
-        }
-        .fix-item:hover { border-color: var(--border-active); }
-        .fix-icon {
-            width: 36px; height: 36px;
-            border-radius: var(--radius-sm);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-        .fix-icon.low    { background: rgba(74,222,128,0.1); }
-        .fix-icon.medium { background: rgba(251,191,36,0.1); }
-        .fix-icon.high   { background: rgba(248,113,113,0.1); }
-        .fix-content { flex: 1; }
-        .fix-command {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            color: var(--success);
-            background: rgba(74, 222, 128, 0.06);
-            padding: 4px 8px;
-            border-radius: var(--radius-sm);
-            display: inline-block;
-            margin-bottom: 4px;
-        }
-        .fix-desc { font-size: 11px; color: var(--text-secondary); }
-        .fix-risk {
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 2px 8px;
-            border-radius: var(--radius-full);
-            flex-shrink: 0;
-            align-self: center;
-        }
-        .fix-risk.low    { background: rgba(74,222,128,0.1); color: var(--success); }
-        .fix-risk.medium { background: rgba(251,191,36,0.1); color: var(--warning); }
-        .fix-risk.high   { background: rgba(248,113,113,0.1); color: var(--error); }
-
-        /* History */
-        .history-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-md);
-            padding: var(--space-md);
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        .history-item:last-child { border-bottom: none; }
-        .history-item:hover { background: var(--primary-soft); }
-        .history-time { font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
-        .history-query { font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .history-intent {
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: var(--radius-full);
-            background: var(--primary-soft);
-            color: var(--primary);
-            flex-shrink: 0;
-        }
-
-        /* ── TOPOLOGY MAP ─────────────────────────────────────── */
-        .topology-canvas {
-            width: 100%;
-            height: 320px;
-            background: radial-gradient(ellipse at center, rgba(0, 212, 170, 0.02) 0%, transparent 70%);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border);
-            position: relative;
-            overflow: hidden;
-        }
-        .topo-node {
-            position: absolute;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        .topo-node:hover { transform: scale(1.1); }
-        .topo-node-box {
-            width: 56px; height: 56px;
-            border-radius: var(--radius-md);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 24px;
-            border: 2px solid var(--border);
-            background: var(--bg-surface);
-            transition: var(--transition);
-        }
-        .topo-node.active .topo-node-box {
-            border-color: var(--primary);
-            box-shadow: 0 0 20px var(--primary-glow);
-        }
-        .topo-node-label { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-align: center; }
-        .topo-node-ip { font-size: 9px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
-
-        /* Topology SVG lines */
-        .topo-lines {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-        }
-        .topo-lines line {
-            stroke: var(--border);
-            stroke-width: 1.5;
-            stroke-dasharray: 6 4;
-        }
-        .topo-lines line.active {
-            stroke: var(--primary);
-            stroke-dasharray: none;
-            filter: drop-shadow(0 0 4px var(--primary-glow));
-        }
-        .topo-lines text {
-            font-size: 9px;
-            fill: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* ── EMPTY STATE ──────────────────────────────────────── */
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-2xl);
-            text-align: center;
-            gap: var(--space-lg);
-        }
-        .empty-state-icon {
-            width: 80px; height: 80px;
-            border-radius: var(--radius-xl);
-            background: linear-gradient(135deg, var(--primary-soft), rgba(129, 140, 248, 0.08));
-            display: flex; align-items: center; justify-content: center;
-            font-size: 36px;
-            border: 1px solid var(--border);
-        }
-        .empty-state h3 { font-size: 18px; font-weight: 600; color: var(--text-primary); }
-        .empty-state p { font-size: 13px; color: var(--text-muted); max-width: 400px; line-height: 1.6; }
-
-        /* ── LOADING / PROGRESS ───────────────────────────────── */
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(6, 10, 18, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        .loading-overlay.active { display: flex; }
-        .loading-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
-            padding: var(--space-xl) var(--space-2xl);
-            text-align: center;
-            box-shadow: var(--shadow-lg);
-            max-width: 360px;
-        }
-        .loading-spinner {
-            width: 48px; height: 48px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            margin: 0 auto var(--space-md);
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-text { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-xs); }
-        .loading-sub { font-size: 11px; color: var(--text-muted); }
-
-        /* Progress bar */
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: var(--bg-elevated);
-            border-radius: var(--radius-full);
-            margin-top: var(--space-md);
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--node-intent));
-            border-radius: var(--radius-full);
-            transition: width 0.5s ease;
-            width: 0;
-        }
-
-        /* ── TOAST NOTIFICATIONS ──────────────────────────────── */
-        .toast-container {
-            position: fixed;
-            top: var(--space-lg);
-            right: var(--space-lg);
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-sm);
-        }
-        .toast {
-            padding: var(--space-md) var(--space-lg);
-            border-radius: var(--radius-md);
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-lg);
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            animation: slideIn 0.3s ease;
-            max-width: 360px;
-        }
-        .toast.success { border-left: 3px solid var(--success); }
-        .toast.error   { border-left: 3px solid var(--error); }
-        .toast.info    { border-left: 3px solid var(--info); }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to   { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to   { transform: translateX(100%); opacity: 0; }
-        }
-
-        /* ── NO RESULTS PLACEHOLDER ──────────────────────────── */
-        .no-issues { 
-            padding: var(--space-lg);
-            text-align: center;
-            color: var(--success);
-            background: rgba(74,222,128,0.05);
-            border-radius: var(--radius-md);
-            border: 1px solid rgba(74,222,128,0.15);
-        }
-
-        /* ── APPLY FIX BUTTON ─────────────────────────────────── */
-        .apply-all-btn {
-            width: 100%;
-            padding: var(--space-md);
-            border-radius: var(--radius-md);
-            background: linear-gradient(135deg, rgba(74,222,128,0.1), rgba(74,222,128,0.05));
-            border: 1px solid rgba(74,222,128,0.2);
-            color: var(--success);
-            font-family: 'Inter', sans-serif;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            margin-top: var(--space-md);
-        }
-        .apply-all-btn:hover {
-            background: rgba(74,222,128,0.15);
-            transform: translateY(-1px);
-        }
-
-        /* ── SCROLLBAR ─────────────────────────────────────────── */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-        /* ── TABS FOR MAIN NAVIGATION ──────────────────────────── */
-        .main-tab-content { display: none; flex-direction: column; flex: 1; height: 100vh; overflow-y: auto; }
-        .main-tab-content.active { display: flex; animation: fadeInTab 0.3s ease; }
-        @keyframes fadeInTab { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* ── RESPONSIVE ──────────────────────────────────────── */
-        @media (max-width: 1024px) {
-            .app-wrapper { grid-template-columns: 1fr; }
-            .sidebar {
-                position: fixed;
-                left: -300px;
-                top: 0;
-                width: 280px;
-                z-index: 500;
-                transition: var(--transition-slow);
-            }
-            .sidebar.open { left: 0; }
-            .mobile-toggle {
-                display: flex !important;
-            }
-            .metrics-row { grid-template-columns: 1fr 1fr; }
-        }
-        .mobile-toggle { display: none; }
-
-        /* ── PROVIDERS TAB ────────────────────────────────────── */
-        .providers-container {
-            padding: var(--space-xl);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-2xl);
-        }
-        .provider-group {
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-lg);
-        }
-        .provider-group-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-bottom: var(--space-sm);
-            border-bottom: 1px solid var(--border);
-        }
-        .provider-group-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #fff;
-        }
-        .provider-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: var(--space-lg);
-        }
-        .provider-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: var(--space-lg);
-            display: flex;
-            align-items: center;
-            gap: var(--space-md);
-            cursor: pointer;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-        }
-        .provider-card:hover {
-            border-color: var(--primary);
-            background: var(--primary-soft);
-            transform: translateY(-2px);
-        }
-        .provider-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
-            background: var(--bg-elevated);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            flex-shrink: 0;
-            border: 1px solid var(--border);
-        }
-        .provider-info {
-            flex: 1;
-            min-width: 0;
-        }
-        .provider-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 2px;
-        }
-        .provider-status {
-            font-size: 11px;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .status-indicator {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-        .status-ready { background: var(--success); box-shadow: 0 0 6px var(--success); }
-        .status-none { background: var(--text-muted); }
+        .btn-submit {
+            width: 100%; background: #290f48; color: #fff; border: none; padding: 14px; border-radius: 8px;
+            font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 10px;
+        }
+        .btn-submit:hover { background: #1a0833; }
         
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(12px);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-xl);
-        }
-        .modal-overlay.active { display: flex; }
-        .modal-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 580px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        @keyframes modalIn { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .modal-header {
-            padding: 24px 32px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .modal-body {
-            padding: 32px;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-        .model-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            margin-bottom: 12px;
-        }
-    </style>
+        .close-btn { position: absolute; top: 20px; right: 20px; cursor: pointer; color: #888; font-size: 20px; }
+        .close-btn:hover { color: #111; }
+        
+        .error-msg { color: #ff5e5e; font-size: 13px; margin-top: -10px; margin-bottom: 16px; display: none; font-weight: 500;}
 
+        /* App Chat Modal */
+        .app-chat-modal {
+            background: #f8f9fa; color: #111; width: 900px; max-width: 95vw; height: 80vh; max-height: 800px;
+            border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5); transform: translateY(20px); transition: 0.3s;
+        }
+        .modal-overlay.active .app-chat-modal { transform: translateY(0); }
+        
+        .chat-modal-header {
+            background: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid #eee;
+        }
+        .cmh-left { display: flex; align-items: center; gap: 12px; }
+        .cmh-avatar { font-size: 24px; background: #290f48; color: #fff; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; position: relative;}
+        .cmh-avatar::after { content:''; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #10b981; border: 2px solid #fff; border-radius: 50%;}
+        .cmh-title h3 { font-size: 16px; font-weight: 800; color: #111; display:flex; align-items:center; gap:8px;}
+        .cmh-title h3 span { font-size: 10px; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-weight: 600; color: #6b7280;}
+        .cmh-title p { font-size: 13px; font-weight: 600; color: #ff5e5e; margin-top: 2px;}
+
+        .cmh-right { display: flex; align-items: center; gap: 8px; }
+        .btn-icon { width: 36px; height: 36px; border-radius: 8px; border: none; background: #f3f4f6; color: #4b5563; font-size: 14px; cursor: pointer; transition: 0.2s; display:flex; align-items:center; justify-content:center;}
+        .btn-icon:hover { background: #e5e7eb; color: #111;}
+        .btn-summarize { background: #8b5cf6; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .btn-summarize:hover { background: #7c3aed; }
+
+        .chat-modal-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+        
+        .pills-container { display: flex; gap: 16px; }
+        .pill-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; flex: 1; display: flex; align-items: flex-start; gap: 12px;}
+        .pill-card i { background: #f3f4f6; color: #6b7280; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink:0;}
+        .pill-card h4 { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 4px;}
+        .pill-card p { font-size: 11px; color: #6b7280; line-height: 1.4;}
+
+        .msg-row { display: flex; gap: 16px; max-width: 85%; }
+        .msg-row.ai { align-self: flex-start; }
+        .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+        
+        .msg-avatar { width: 36px; height: 36px; border-radius: 50%; background: #290f48; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;}
+        .msg-row.user .msg-avatar { background: #ff5e5e; }
+        
+        .msg-bubble { background: #fff; border: 1px solid #eee; padding: 16px 20px; border-radius: 0 16px 16px 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); font-size: 14px; line-height: 1.6; color: #333;}
+        .msg-row.user .msg-bubble { background: #8b5cf6; color: #fff; border-color: transparent; border-radius: 16px 0 16px 16px; }
+        
+        .msg-actions { display: flex; gap: 8px; margin-top: 12px; }
+        .msg-actions button { background: #f3f4f6; border: none; width: 32px; height: 32px; border-radius: 8px; font-size: 13px; color: #6b7280; cursor: pointer; transition:0.2s;}
+        .msg-actions button:hover { background: #e5e7eb; color: #111;}
+        .msg-actions .btn-contact-action { background: #8b5cf6; color: #fff; width: auto; padding: 0 16px; font-weight: 600;}
+
+        .chat-modal-footer { padding: 16px 24px; background: #fff; border-top: 1px solid #eee;}
+        .chat-input-wrapper { display: flex; align-items: center; border: 1px solid #ddd; border-radius: 40px; padding: 8px 12px 8px 24px; background: #fff;}
+        .chat-input-wrapper input { flex:1; border:none; outline:none; font-size: 15px; color: #111;}
+        .chat-input-wrapper button { background: #e9d5ff; color: #8b5cf6; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+        .chat-input-wrapper button:hover { background: #8b5cf6; color: #fff;}
+        
+        .footer-note { text-align: center; font-size: 11px; color: #9ca3af; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;}
+
+    </style>
 </head>
 <body>
 
-    <!-- Toast container -->
-    <div class="toast-container" id="toasts"></div>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-network-wired"></i> 
+            NetAI <span style="display: flex; flex-direction: column; line-height: 1.1;"><span>AI for Networks</span><span>Networks for AI</span></span>
+        </div>
+        <div class="nav-links">
+            <a>Products <i class="fas fa-angle-down" style="font-size: 10px; margin-left:4px;"></i></a>
+            <a>One Center <i class="fas fa-angle-down" style="font-size: 10px; margin-left:4px;"></i></a>
+            <a>Partners <i class="fas fa-angle-down" style="font-size: 10px; margin-left:4px;"></i></a>
+            <a>Industry <i class="fas fa-angle-down" style="font-size: 10px; margin-left:4px;"></i></a>
+            <a>Discover <i class="fas fa-angle-down" style="font-size: 10px; margin-left:4px;"></i></a>
+            <a style="color: #d67dfe;">Pricing</a>
+        </div>
+        <div class="nav-right">
+            <a class="btn-contact">Support <i class="fas fa-angle-down" style="font-size: 10px; margin-left:4px;"></i></a>
+            <button class="btn-login" onclick="openLogin()">Login</button>
+            <a class="btn-contact">Contact</a>
+        </div>
+    </nav>
 
-    <!-- Loading overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-card">
-            <div class="loading-spinner"></div>
-            <div class="loading-text" id="loadingText">Đang xử lý...</div>
-            <div class="loading-sub" id="loadingSub">Agent đang phân tích ý định</div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
+    <div class="hero">
+        <h1>How to <span style="color:#fff;">Modernize Your Network</span><br>for the AI Era - <span class="highlight">On Your Terms?</span></h1>
+        <p>We help you standardize infrastructure, power automation with AI, eliminate hardware dependencies—and unlock TCO savings with enterprise-grade ROI.</p>
+    </div>
+
+    <div class="chat-widget-container">
+        <div class="cw-header">
+            <h2>No Time to Browse? Ask AI.</h2>
+            <div class="cw-badge">Summarise Page</div>
+        </div>
+        <div class="cw-powered">
+            Powered by NetAI <i class="fas fa-microchip" style="font-size: 16px;"></i>
+        </div>
+        
+        <div class="cw-input-box" onclick="openAppChatModal()" style="cursor: pointer;">
+            <input type="text" placeholder="Hello! How may I help you today?" disabled style="cursor: pointer;">
+            <button><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
 
-    <div class="app-wrapper">
+    <!-- Background Decoration dots -->
+    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-image: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 80%); pointer-events: none; z-index: -1;"></div>
 
-        <!-- ═══ SIDEBAR ═══ -->
-        <aside class="sidebar" id="sidebar" style="padding:0; gap:0;">
-            <div class="sidebar-brand">
-                <div class="brand-icon">
-                    <i class="fas fa-network-wired"></i>
+    <!-- App Chat Modal -->
+    <div class="modal-overlay" id="appChatModal" onclick="closeAppChatModal()">
+        <div class="app-chat-modal" id="appChatModalContent" onclick="event.stopPropagation()">
+            
+            <div class="chat-modal-header">
+                <div class="cmh-left">
+                    <div class="cmh-avatar"><i class="fas fa-crow"></i></div>
+                    <div class="cmh-title">
+                        <h3>Ask AI <span>Beta V3.0.1</span></h3>
+                        <p>Your Solution Engineer</p>
+                    </div>
                 </div>
-                <div class="brand-text">
-                    <h1>NetAI Proxy</h1>
-                    <span>v0.4.85</span>
+                <div class="cmh-right">
+                    <button class="btn-summarize" onclick="alert('Summarize page feature is coming soon!')"><i class="fas fa-file-alt"></i> Summarize Page</button>
+                    <button class="btn-icon"><i class="fas fa-plus"></i></button>
+                    <button class="btn-icon"><i class="fas fa-history"></i></button>
+                    <button class="btn-icon" onclick="clearAppChat()"><i class="fas fa-trash-alt"></i></button>
+                    <button class="btn-icon" onclick="closeAppChatModal()"><i class="fas fa-times" style="font-size: 16px;"></i></button>
                 </div>
             </div>
 
-            <div style="flex:1; padding:var(--space-md) 0; overflow-y:auto; display:flex; flex-direction:column;">
-                <div class="sidebar-section-title" style="margin:var(--space-md) var(--space-lg) var(--space-xs);">Menu</div>
-                
-                <div class="nav-item active" onclick="switchMainNav('dashboard')">
-                    <span class="nav-icon"><i class="fas fa-chart-line"></i></span> Dashboard
-                </div>
-                <div class="nav-item" onclick="switchMainNav('devices')">
-                    <span class="nav-icon"><i class="fas fa-server"></i></span> Thiết bị
-                </div>
-                <div class="nav-item" onclick="switchMainNav('providers')">
-                    <span class="nav-icon"><i class="fas fa-layer-group"></i></span> Providers
-                </div>
-
-                <div class="sidebar-section-title" style="margin:var(--space-md) var(--space-lg) var(--space-xs);">SYSTEM</div>
-                
-                <div class="nav-item" onclick="switchMainNav('console')">
-                    <span class="nav-icon"><i class="fas fa-terminal"></i></span> Console Log
-                </div>
-                <div class="nav-item" onclick="switchMainNav('settings')">
-                    <span class="nav-icon"><i class="fas fa-cog"></i></span> Settings
-                </div>
-            </div>
-
-            <div style="padding:var(--space-md); margin-top: auto;">
-                <button class="btn btn-ghost" style="width:100%; justify-content:center; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02);">
-                    <i class="fas fa-power-off" style="margin-right:8px;"></i> Shutdown
-                </button>
-            </div>
-        </aside>
-
-        <!-- ═══ MAIN ═══ -->
-        <main class="main-content">
-            <!-- TAB: DASHBOARD -->
-            <div id="tab-dashboard" class="main-tab-content active">
-                <!-- Top bar -->
-                <header class="topbar">
-                    <div class="topbar-left" style="display:flex; align-items:center; gap:12px;">
-                        <i class="fas fa-chart-pie" style="font-size:20px; color:var(--primary);"></i>
+            <div class="chat-modal-body" id="appChatBody">
+                <div class="pills-container">
+                    <div class="pill-card" onclick="setAppChatInput('Hệ thống NetAI hỗ trợ những hãng thiết bị nào?')">
+                        <i class="fas fa-search"></i>
                         <div>
-                            <h2 style="font-size:16px;">Usage & Analytics</h2>
-                            <p style="font-size:11px;">Monitor your API usage, token consumption, and request logs</p>
+                            <h4>Hỗ trợ Thiết bị</h4>
+                            <p>Tìm hiểu các dòng Switch/Router mà AI có thể quản trị.</p>
                         </div>
                     </div>
-                    <div class="topbar-right">
-                        <div style="display:flex; align-items:center; gap:20px; color:var(--text-secondary); font-size:12px;">
-                            <span><i class="fas fa-desktop" style="margin-right:8px;"></i> Remote</span>
-                            <span><i class="fas fa-globe" style="margin-right:8px;"></i> EN</span>
-                            <i class="fas fa-sun"></i>
-                            <i class="fas fa-sign-out-alt"></i>
-                        </div>
-                    </div>
-                </header>
-
-                <div class="sub-nav">
-                    <div class="sub-nav-item active" onclick="switchDashboardSubTab('overview')">Overview</div>
-                    <div class="sub-nav-item" onclick="switchDashboardSubTab('details')">Details</div>
-                </div>
-
-                <div id="dash-overview">
-
-
-                    <div class="content-area">
-                        <!-- Quick Commands -->
-                        <div class="quick-commands">
-                            <button class="quick-cmd" onclick="setQuery('Check status of interface Gi0/0')">Check Gi0/0</button>
-                            <button class="quick-cmd" onclick="setQuery('Troubleshoot VLAN 10 connection issues')">Fix VLAN 10</button>
-                            <button class="quick-cmd" onclick="setQuery('Check trunk configuration on the switch')">Check Trunks</button>
-                            <button class="quick-cmd" onclick="setQuery('Show me the current routing table')">Routing Table</button>
-                            <button class="quick-cmd" onclick="setQuery('Verify overall device health')">Device Health</button>
-                        </div>
-
-                        <!-- Input Area -->
-                        <div class="input-area">
-                            <textarea id="queryInput" placeholder="How can I help you with the network today?" onkeydown="handleInputKey(event)"></textarea>
-                            <div class="input-actions">
-                                <!-- Model Picker -->
-                                <div class="model-picker-wrap" id="modelPickerWrap">
-                                    <button class="model-picker-btn" id="modelPickerBtn" onclick="toggleModelPicker(event)">
-                                        <i class="fas fa-microchip" style="font-size:10px;"></i>
-                                        <span class="mpb-name" id="modelPickerLabel">gemini-1.5-flash</span>
-                                        <i class="fas fa-chevron-up mpb-icon"></i>
-                                    </button>
-                                    <div class="model-dropdown" id="modelDropdown">
-                                        <div class="model-dropdown-header">Chọn AI Model</div>
-                                        <div class="model-dropdown-scroll" id="modelDropdownList"></div>
-                                    </div>
-                                </div>
-                                <div class="input-buttons">
-                                    <button class="btn btn-ghost" onclick="clearHistory()"><i class="fas fa-trash-alt"></i> Clear</button>
-                                    <button class="btn btn-primary" id="sendBtn" onclick="submitQuery()">
-                                        <span>Send to AI</span>
-                                        <i class="fas fa-paper-plane"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Metrics Grid -->
-
-                    <div class="metrics-grid">
-                        <div class="metric-card">
-                            <div class="metric-label">Total Requests</div>
-                            <div class="metric-value" id="dashTotalReq">0</div>
-                            <div class="metric-trend trend-up"><i class="fas fa-arrow-up"></i> 12% vs last week</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-label">Commands Run</div>
-                            <div class="metric-value" id="dashTotalCmd">0</div>
-                            <div class="metric-trend trend-up"><i class="fas fa-arrow-up"></i> 5%</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-label">Active Issues</div>
-                            <div class="metric-value" style="color:var(--error);" id="dashTotalIssues">0</div>
-                            <div class="metric-trend" style="color:var(--text-muted);">Current sessions</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-label">Est. Savings</div>
-                            <div class="metric-value" style="color:#fff;">~$0.00</div>
-                            <div class="metric-trend" style="color:var(--text-muted);">Estimated, not actual</div>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-layout">
-                        <div class="main-panel">
-                            <!-- Results -->
-                            <div id="resultArea" style="flex:1; display:flex; flex-direction:column;">
-                                <div class="empty-state" id="emptyState" style="background:rgba(0,0,0,0.1); border-radius:12px; border: 1px dashed var(--border); padding: 40px;">
-                                    <div class="empty-state-icon" style="background:transparent; border:none; width:auto; height:auto; color:var(--text-muted); font-size:48px;"><i class="fas fa-robot"></i></div>
-                                    <h3 style="font-size:16px;">No requests yet.</h3>
-                                    <p style="font-size:12px;">Enter a network troubleshooting query to begin analysis.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="side-panel">
-                            <div class="panel-header">RECENT REQUESTS</div>
-                            <div class="panel-content" id="recentRequestsList" style="display:flex; flex-direction:column; gap:0;">
-                                <div style="text-align:center; padding: 40px 0; color:var(--text-muted); font-size:12px;">No requests yet.</div>
-                            </div>
+                    <div class="pill-card" onclick="setAppChatInput('Hướng dẫn mình cách chẩn đoán lỗi Trunk Port?')">
+                        <i class="far fa-comment-dots"></i>
+                        <div>
+                            <h4>Chẩn đoán Mạng</h4>
+                            <p>Học cách sử dụng AI để bắt bệnh mạng nhanh chóng.</p>
                         </div>
                     </div>
                 </div>
 
-                <div id="dash-details" style="display:none; padding: 0 var(--space-xl) var(--space-xl);">
-                    <div class="result-card">
-                        <div class="result-card-header">
-                            <h3><i class="fas fa-list-ul"></i> Request Activity Feed</h3>
-                        </div>
-                        <div class="result-card-body" style="padding:0;">
-                            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                                <thead>
-                                    <tr style="text-align:left; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.02);">
-                                        <th style="padding:16px;">Timestamp</th>
-                                        <th style="padding:16px;">Device</th>
-                                        <th style="padding:16px;">Intent</th>
-                                        <th style="padding:16px;">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dashDetailsTable">
-                                    <tr>
-                                        <td colspan="4" style="padding:40px; text-align:center; color:var(--text-muted);">No history data available. Run an analysis to see details.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div> <!-- END TAB DASHBOARD -->
-
-            <!-- TAB: DEVICES -->
-            <div id="tab-devices" class="main-tab-content" style="padding: var(--space-xl);">
-                <header style="margin-bottom: var(--space-xl); display:flex; justify-content:space-between; align-items:center;">
+                <div class="msg-row ai">
+                    <div class="msg-avatar"><i class="fas fa-crow"></i></div>
                     <div>
-                        <h2 style="font-size:24px; font-weight:800; color:#fff;">Thiết bị Mạng</h2>
-                        <p style="color:var(--text-muted); font-size:13px;">Quản lý và giám sát trạng thái thiết bị Core & Edge</p>
+                        <div class="msg-bubble">
+                            Welcome to Aviz AI Assistant.<br><br>Ask anything about our products, solutions, or resources. <br><i>(Note: This is a Demo environment. Connect to your Dashboard for deeper network configs).</i>
+                        </div>
+                        <div class="msg-actions">
+                            <button><i class="far fa-thumbs-up"></i></button>
+                            <button><i class="far fa-copy"></i></button>
+                            <button><i class="fas fa-sync-alt"></i></button>
+                            <button class="btn-contact-action" onclick="switchToLogin()">Sign in</button>
+                        </div>
                     </div>
-                    <button class="btn btn-primary" onclick="showToast('Scanning network...', 'info')"><i class="fas fa-sync"></i> Re-scan Network</button>
-                </header>
-
-                <div id="deviceGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:var(--space-lg);">
-                    <!-- Dynamic Devices -->
                 </div>
             </div>
 
-            <!-- TAB: CONSOLE LOG -->
-            <div id="tab-console" class="main-tab-content" style="background:#09090b;">
-                <div style="padding:var(--space-2xl); display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
-                    <div>
-                        <h2 style="font-size:24px; color:#fff; display:flex; align-items:center; gap:12px;"><span style="color:var(--primary); font-family:monospace">>_</span> Console Log</h2>
-                        <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">Live server console output</p>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-ghost" onclick="clearConsole()" style="border:1px solid var(--border);"><i class="fas fa-trash" style="margin-right:8px;"></i> Clear</button>
-                        <button class="btn btn-ghost" onclick="downloadLogs()" style="border:1px solid var(--border);"><i class="fas fa-download" style="margin-right:8px;"></i> Export</button>
-                    </div>
+            <div class="chat-modal-footer">
+                <div class="chat-input-wrapper">
+                    <input type="text" id="appChatInput" placeholder="Type your message (try: 'check my network')..." autocomplete="off">
+                    <button id="appChatSend" onclick="homepageSendMessage()"><i class="fas fa-paper-plane"></i></button>
                 </div>
-                <div style="padding:var(--space-xl) var(--space-2xl); flex:1; overflow-y:auto;">
-                    <div id="fullConsoleLog" style="font-family:'JetBrains Mono', monospace; font-size:13px; line-height:1.8; color:#a1a1aa; white-space:pre-wrap;"><span style="color:var(--text-muted)">No console logs yet.</span><br></div>
+                <div class="footer-note">
+                    Disclaimer: Powered by <i class="fas fa-microchip"></i> NetAI Engine. While it is designed to provide helpful and accurate information, responses may be incorrect or inappropriate. Use with discretion.
                 </div>
-            </div> <!-- END TAB CONSOLE LOG -->
+            </div>
 
-            <!-- TAB: SETTINGS -->
-            <div id="tab-settings" class="main-tab-content">
-                <div style="padding:var(--space-2xl); border-bottom:1px solid var(--border);">
-                    <h2 style="font-size:24px; color:#fff; display:flex; align-items:center; gap:12px;">⚙ Settings</h2>
-                    <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">Manage your preferences</p>
-                </div>
-                <div style="padding:var(--space-xl) var(--space-2xl); max-width:800px; width:100%;">
-                    
-                    <div style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:12px; margin-bottom:var(--space-xl); overflow:hidden;">
-                        <div style="padding:20px; display:flex; align-items:center; border-bottom:1px solid var(--border);">
-                            <div style="width:40px; height:40px; background:rgba(16,185,129,0.1); color:var(--success); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:20px; margin-right:16px;"><i class="fas fa-laptop"></i></div>
-                            <div style="flex:1;">
-                                <h3 style="font-size:15px; font-weight:600; color:#fff;">Local Mode</h3>
-                                <div style="font-size:12px; color:var(--text-muted);">Running on your machine</div>
-                            </div>
-                        </div>
-                        <div style="padding:20px;">
-                            <div style="font-size:11px; font-weight:600; color:#fff; margin-bottom:8px;">Database Location</div>
-                            <div style="background:#111; padding:12px; border-radius:6px; font-family:monospace; font-size:12px; color:var(--text-secondary); margin-bottom:16px;">~/.9router/db.json</div>
-                            <div style="display:flex; gap:12px;">
-                                <button class="btn btn-ghost" style="flex:1; justify-content:center;"><i class="fas fa-file-download" style="margin-right:8px;"></i> Download Backup</button>
-                                <button class="btn btn-ghost" style="flex:1; justify-content:center;"><i class="fas fa-file-upload" style="margin-right:8px;"></i> Import Backup</button>
-                            </div>
-                        </div>
-                    </div>
+        </div>
+    </div>
 
-                    <div style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
-                        <div style="padding:20px; display:flex; align-items:center; border-bottom:1px solid var(--border);">
-                            <div style="width:40px; height:40px; background:rgba(249,115,22,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:20px; margin-right:16px;"><i class="fas fa-shield-halved"></i></div>
-                            <div style="flex:1;">
-                                <h3 style="font-size:15px; font-weight:600; color:#fff;">Security</h3>
-                            </div>
-                        </div>
-                        <div style="padding:20px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                                <div>
-                                    <h4 style="font-size:13px; color:#fff; margin-bottom:4px;">Require login</h4>
-                                    <p style="font-size:11px; color:var(--text-muted);">When ON, dashboard requires password. When OFF, access without login.</p>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" checked>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            
-                            <div style="display:flex; gap:20px; margin-bottom:20px;">
-                                <div style="flex:1;">
-                                    <h4 style="font-size:12px; color:#fff; margin-bottom:8px;">New Password</h4>
-                                    <input type="password" placeholder="Enter new password" style="width:100%; background:#111; border:1px solid var(--border); padding:10px 12px; border-radius:6px; color:#fff; outline:none;">
-                                </div>
-                                <div style="flex:1;">
-                                    <h4 style="font-size:12px; color:#fff; margin-bottom:8px;">Confirm New Password</h4>
-                                    <input type="password" placeholder="Confirm new password" style="width:100%; background:#111; border:1px solid var(--border); padding:10px 12px; border-radius:6px; color:#fff; outline:none;">
-                                </div>
-                            </div>
-                            <button class="btn btn-primary" onclick="showToast('Đã cập nhật mật khẩu hệ thống', 'success')">Set Password</button>
-                        </div>
-                    </div>
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="login-box" style="position: relative;">
+            <i class="fas fa-times close-btn" onclick="closeLogin()"></i>
+            <h2>Sign In</h2>
+            <p>Access your NetAI management portal.</p>
+            
+            <div class="error-msg" id="errorMsg">Thông tin đăng nhập không hợp lệ</div>
 
-                </div>
-            </div> <!-- END TAB SETTINGS -->
-
-            <!-- TAB: PROVIDERS -->
-            <div id="tab-providers" class="main-tab-content">
-                <header class="topbar">
-                    <div class="topbar-left" style="display:flex; align-items:center; gap:12px;">
-                        <i class="fas fa-layer-group" style="font-size:20px; color:var(--primary);"></i>
-                        <div>
-                            <h2 style="font-size:16px;">Providers</h2>
-                            <p style="font-size:11px;">Manage your AI provider connections</p>
-                        </div>
-                    </div>
-                </header>
-
-                <div class="providers-container">
-                    <!-- OAuth Providers Group -->
-                    <div class="provider-group">
-                        <div class="provider-group-header">
-                            <h3 class="provider-group-title">OAuth Providers</h3>
-                            <button class="btn btn-ghost" style="font-size:11px; padding:6px 16px;" onclick="testAllProviders('oauth')"><i class="fas fa-play" style="margin-right:8px; font-size:10px;"></i> Test All</button>
-                        </div>
-                        <div class="provider-grid" id="oauthProvidersGrid">
-                            <!-- Dynamic -->
-                        </div>
-                    </div>
-
-                    <!-- Free Tier Group -->
-                    <div class="provider-group">
-                        <div class="provider-group-header">
-                            <h3 class="provider-group-title">Free & Free Tier Providers</h3>
-                            <button class="btn btn-ghost" style="font-size:11px; padding:6px 16px;" onclick="testAllProviders('free')"><i class="fas fa-play" style="margin-right:8px; font-size:10px;"></i> Test All</button>
-                        </div>
-                        <div class="provider-grid" id="freeProvidersGrid">
-                            <!-- Dynamic -->
-                        </div>
-                    </div>
-                </div>
-            </div> <!-- END TAB PROVIDERS -->
-
-            <!-- Provider Detail Modal -->
-            <div class="modal-overlay" id="providerModal" onclick="closeProviderModal(event)">
-                <div class="modal-card" onclick="event.stopPropagation()">
-                    <div class="modal-header">
-                        <div style="display:flex; align-items:center; gap:16px;">
-                            <div class="provider-icon" id="modalProviderIcon"><i class="fas fa-robot"></i></div>
-                            <div>
-                                <h3 id="modalProviderName" style="font-size:18px; color:#fff;">Provider Name</h3>
-                                <p id="modalProviderStatus" style="font-size:12px; color:var(--text-muted);">Ready to use</p>
-                            </div>
-                        </div>
-                        <button class="btn btn-ghost" onclick="closeProviderModal()" style="border-radius:50%; width:36px; height:36px; padding:0; justify-content:center;"><i class="fas fa-times"></i></button>
-                    </div>
-                    <div class="modal-body" id="modalProviderModels">
-                        <!-- Models listed here -->
-                    </div>
-                </div>
+            <div class="input-group">
+                <label>Username (demo: admin)</label>
+                <input type="text" id="username" placeholder="Nhập admin" autocomplete="off">
             </div>
             
-            <!-- Terminal Modal -->
-            <div class="modal-overlay" id="terminalModal" onclick="closeTerminalModal(event)">
-                <div class="modal-card" onclick="event.stopPropagation()" style="max-width: 800px; width: 90%;">
-                    <div class="modal-header">
-                        <div style="display:flex; align-items:center; gap:16px;">
-                            <div class="provider-icon"><i class="fas fa-terminal"></i></div>
-                            <div>
-                                <h3 id="terminalTitle" style="font-size:18px; color:#fff;">SSH Console</h3>
-                                <p id="terminalDevice" style="font-size:12px; color:var(--text-muted);">Connecting...</p>
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn btn-ghost" onclick="clearConsole()" style="font-size:11px; padding:6px 12px;"><i class="fas fa-eraser"></i> Clear</button>
-                            <button class="btn btn-ghost" onclick="closeTerminalModal()" style="border-radius:50%; width:36px; height:36px; padding:0; justify-content:center;"><i class="fas fa-times"></i></button>
-                        </div>
-                    </div>
-                    <div class="modal-body" style="background:#0a0a0a; color:#0f0; font-family:'JetBrains Mono', monospace; font-size:13px; padding:20px; min-height:400px; max-height:600px; overflow-y:auto; border-radius: 0 0 12px 12px;">
-                        <div id="terminalContent">
-                            <div style="color:#aaa;">NetAI Secure Shell [Version 1.0.4]</div>
-                            <div style="color:#aaa; margin-bottom:10px;">(c) 2026 NetAI Corporation. All rights reserved.</div>
-                            <div id="terminalLogs"></div>
-                            <div style="display:flex; gap:8px; margin-top:10px;">
-                                <span style="color:var(--primary);">></span>
-                                <input type="text" id="terminalInput" style="background:transparent; border:none; color:#fff; outline:none; font-family:inherit; font-size:inherit; flex:1;" placeholder="Enter command..." onkeydown="handleTerminalKey(event)">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="input-group">
+                <label>Password (demo: admin)</label>
+                <input type="password" id="password" placeholder="Nhập admin">
             </div>
-
-        </main>
+            
+            <button class="btn-submit" onclick="doLogin()">Log In</button>
+        </div>
     </div>
 
     <script>
-    // ═══════════════════════════════════════════════════════════════
-    // APPLICATION STATE
-    // ═══════════════════════════════════════════════════════════════
-
-    const APP = {
-        devices: [
-            { name: "Core Switch",     ip: "192.168.1.1",   status: "up",      type: "cisco_ios", location: "Server Room A", icon: '<i class="fas fa-network-wired"></i>' },
-            { name: "Core Router",     ip: "192.168.1.254", status: "up",      type: "cisco_ios", location: "Server Room A", icon: '<i class="fas fa-globe"></i>' },
-            { name: "Access Switch 1", ip: "192.168.1.2",   status: "warning", type: "cisco_ios", location: "Floor 1",       icon: '<i class="fas fa-network-wired"></i>' },
-            { name: "Access Switch 2", ip: "192.168.1.3",   status: "up",      type: "cisco_ios", location: "Floor 2",       icon: '<i class="fas fa-network-wired"></i>' },
-        ],
-        selectedDevice: 0,
-        autoFix: false,
-        stats: { queries: 0, commands: 0, issues: 0, fixes: 0 },
-        history: [],
-        lastResult: null,
-        processing: false,
-        preferredModel: "openrouter/meta-llama/llama-3.3-70b-instruct:free",
-        providers: [
-            { id: 'claude', name: 'Claude Code', icon: '<i class="fas fa-gem"></i>', group: 'oauth', status: 'none', models: [
-                { name: 'claude-3-5-sonnet', quota: 85, rpm: 10 },
-                { name: 'claude-3-opus', quota: 20, rpm: 5 }
-            ]},
-            { id: 'antigravity', name: 'Antigravity', icon: '<i class="fas fa-shuttle-space"></i>', group: 'oauth', status: 'connected', connections: 6, models: [
-                { name: 'ag-flash-3.0', quota: 95, rpm: 100 },
-                { name: 'ag-pro-1.2', quota: 40, rpm: 20 }
-            ]},
-            { id: 'groq', name: 'Groq Cloud', icon: '<i class="fas fa-bolt"></i>', group: 'oauth', status: 'ready', models: [
-                { name: 'groq/llama-3.3-70b-versatile', quota: 100, rpm: 30 },
-                { name: 'groq/mixtral-8x7b-32768', quota: 100, rpm: 30 },
-                { name: 'groq/gemma2-9b-it', quota: 100, rpm: 30 }
-            ]},
-            { id: 'openai_codex', name: 'OpenAI Codex', icon: '<i class="fas fa-robot"></i>', group: 'oauth', status: 'none', models: [] },
-            { id: 'github_copilot', name: 'GitHub Copilot', icon: '<i class="fab fa-github"></i>', group: 'oauth', status: 'none', models: [] },
-            { id: 'gemini', name: 'Google Gemini', icon: '<i class="fab fa-google"></i>', group: 'free', status: 'ready', models: [
-                { name: 'gemini/gemini-2.0-flash', quota: 100, rpm: 15 },
-                { name: 'gemini/gemini-2.0-flash-lite', quota: 100, rpm: 30 },
-            ]},
-            { id: 'openrouter', name: 'OpenRouter', icon: '<i class="fas fa-globe"></i>', group: 'free', status: 'ready', models: [
-                { name: 'openrouter/meta-llama/llama-3.3-70b-instruct:free', quota: 50, rpm: 10 },
-                { name: 'openrouter/google/gemma-3-27b-it:free', quota: 100, rpm: 10 },
-                { name: 'openrouter/nvidia/nemotron-3-super-120b-a12b:free', quota: 50, rpm: 10 },
-                { name: 'openrouter/qwen/qwen3-coder:free', quota: 50, rpm: 10 },
-                { name: 'openrouter/openai/gpt-oss-120b:free', quota: 50, rpm: 10 },
-                { name: 'openrouter/nousresearch/hermes-3-llama-3.1-405b:free', quota: 30, rpm: 10 },
-                { name: 'openrouter/meta-llama/llama-3.2-3b-instruct:free', quota: 100, rpm: 20 }
-            ]}
-        ]
-    };
-
-
-    // ═══════════════════════════════════════════════════════════════
-    // SIMULATED SSH OUTPUTS (matching manager.py)
-    // ═══════════════════════════════════════════════════════════════
-
-    const SIMULATED_OUTPUTS = {
-        "show vlan brief": `VLAN Name                             Status    Ports
----- -------------------------------- --------- -------------------------------
-1    default                          active    Gi0/0, Gi0/3
-10   MGMT_VLAN                        active    Fa0/1, Fa0/2
-20   DATA_VLAN                        active    Fa0/9, Fa0/10, Fa0/11
-30   VOICE_VLAN                       active    Fa0/17, Fa0/18
-99   NATIVE_VLAN                      active
-100  SERVERS                          active    Gi0/1, Gi0/2`,
-
-        "show vlan id 10": `VLAN Name                             Status    Ports
----- -------------------------------- --------- -------------------------------
-10   MGMT_VLAN                        active    Fa0/3, Fa0/4
-
-VLAN Type  SAID       MTU   Parent RingNo BridgeNo Stp  BrdgMode Trans1 Trans2
----- ----- ---------- ----- ------ ------ -------- ---- -------- ------ ------
-10   enet  100010     1500  -      -      -        ieee -        0      0`,
-
-        "show interfaces vlan 10": `Vlan10 is down, line protocol is down
-  Hardware is EtherSVI, address is aabb.cc0a.0001 (bia aabb.cc0a.0001)
-  Internet address is 192.168.10.1/24
-  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec,
-     reliability 255/255, txload 1/255, rxload 1/255
-  Encapsulation ARPA, loopback not set
-  Last clearing of "show interface" counters never`,
-
-        "show spanning-tree vlan 10": `  VLAN10 is not enabled on any port in STP`,
-
-        "show interfaces trunk": `Port        Mode             Encapsulation  Status        Native vlan
-Gi0/1       on               802.1q         trunking      1
-Gi0/2       desirable        802.1q         not-trunking  1
-
-Port        Vlans allowed on trunk
-Gi0/1       1-4094
-Gi0/2       1-4094
-
-Port        Vlans allowed and active in management domain
-Gi0/1       1,10,20,30,99,100
-Gi0/2       none
-
-Port        Vlans in spanning tree forwarding state and not pruned
-Gi0/1       1,10,20,30,99,100
-Gi0/2       none`,
-
-        "show ip interface brief": `Interface              IP-Address      OK? Method Status                Protocol
-GigabitEthernet0/0     192.168.1.1     YES NVRAM  up                    up
-GigabitEthernet0/1     unassigned      YES unset  up                    up
-GigabitEthernet0/2     unassigned      YES unset  up                    up
-Vlan1                  unassigned      YES NVRAM  up                    up
-Vlan10                 192.168.10.1    YES NVRAM  down                  down
-Vlan20                 192.168.20.1    YES NVRAM  up                    up`,
-
-        "show interfaces status": `Port      Name               Status       Vlan       Duplex  Speed Type
-Gi0/1                        connected    trunk      a-full  a-1G  10/100/1000BaseTX
-Gi0/2                        notconnect   1          auto    auto  10/100/1000BaseTX
-Fa0/1                        connected    10         a-full  a-100 10/100BaseTX
-Fa0/2                        connected    10         a-full  a-100 10/100BaseTX
-Fa0/3                        suspended    10         auto    auto  10/100BaseTX
-Fa0/4                        suspended    10         auto    auto  10/100BaseTX`,
-
-        "show version": `Cisco IOS Software, Version 15.2(4)M7, RELEASE SOFTWARE (fc4)
-Technical Support: http://www.cisco.com/techsupport
-Cisco 2911 (revision 1.0) with 483328K/32768K bytes of memory.
-System image file is "flash0:c2900-universalk9-mz.SPA.152-4.M7.bin"
-
-Last reset from power-on
-3 Gigabit Ethernet interfaces
-DRAM configuration is 64 bits wide with parity disabled.
-255K bytes of non-volatile configuration memory.
-250880K bytes of ATA System CompactFlash 0 (Read/Write)
-
-Configuration register is 0x2102`,
-
-        "show ip route": `Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
-
-Gateway of last resort is 192.168.1.254 to network 0.0.0.0
-
-S*    0.0.0.0/0 [1/0] via 192.168.1.254
-      192.168.1.0/24 is variably subnetted, 2 subnets, 2 masks
-C        192.168.1.0/24 is directly connected, GigabitEthernet0/0
-L        192.168.1.1/32 is directly connected, GigabitEthernet0/0
-C     192.168.10.0/24 is directly connected, Vlan10
-C     192.168.20.0/24 is directly connected, Vlan20`,
-
-        "show ip route summary": `IP routing table name is default (0x0)
-IP routing table maximum-paths is 32
-Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)
-connected       3           3           0           288         456
-static          1           0           0           72          152
-Total           4           3           0           360         608`,
-    };
-
-    // ═══════════════════════════════════════════════════════════════
-    // INTENT & ISSUE ANALYSIS ENGINE (mirroring graph.py logic)
-    // ═══════════════════════════════════════════════════════════════
-
-    function analyzeIntent(query) {
-        const q = query.toLowerCase();
-
-        // VLAN
-        const vlanMatch = q.match(/vlan\s*(\d+)/);
-        if (vlanMatch) {
-            const vid = vlanMatch[1];
-            return {
-                intent: "vlan_troubleshoot",
-                commands: [
-                    `show vlan id ${vid}`,
-                    `show interfaces vlan ${vid}`,
-                    `show spanning-tree vlan ${vid}`,
-                    "show interfaces trunk"
-                ]
-            };
+        function openLogin() {
+            document.getElementById('loginModal').style.display = 'flex';
+            setTimeout(() => { document.getElementById('loginModal').classList.add('active'); }, 10);
+            document.getElementById('username').focus();
         }
-
-        // Port/Interface
-        const portMatch = q.match(/(gi|fa|eth|te)\s*(\d+\/\d+)/i);
-        if (portMatch || q.includes('port') || q.includes('interface')) {
-            const port = portMatch ? portMatch[0].replace(/\s/g, '') : 'GigabitEthernet0/1';
-            return {
-                intent: "interface_check",
-                commands: [
-                    `show interfaces ${port}`,
-                    `show interfaces ${port} switchport`,
-                    "show interfaces status"
-                ]
-            };
+        function closeLogin() {
+            document.getElementById('loginModal').classList.remove('active');
+            setTimeout(() => { document.getElementById('loginModal').style.display = 'none'; }, 300);
         }
-
-        // Trunk
-        if (q.includes('trunk')) {
-            return {
-                intent: "trunk_troubleshoot",
-                commands: [
-                    "show interfaces trunk",
-                    "show interfaces status",
-                    "show vlan brief"
-                ]
-            };
-        }
-
-        // Routing
-        if (q.includes('route') || q.includes('routing') || q.includes('ping') || q.includes('gateway')) {
-            return {
-                intent: "routing_check",
-                commands: [
-                    "show ip route",
-                    "show ip route summary",
-                    "show ip interface brief"
-                ]
-            };
-        }
-
-        // Default
-        return {
-            intent: "general_health",
-            commands: [
-                "show version",
-                "show ip interface brief",
-                "show vlan brief",
-                "show interfaces status"
-            ]
-        };
-    }
-
-    function getSimOutput(cmd) {
-        if (SIMULATED_OUTPUTS[cmd]) return SIMULATED_OUTPUTS[cmd];
-        // Partial match
-        for (const [key, val] of Object.entries(SIMULATED_OUTPUTS)) {
-            if (key.includes(cmd) || cmd.includes(key)) return val;
-        }
-        return `% Command '${cmd}' output not available in simulation mode`;
-    }
-
-    function analyzeIssues(intent, outputsText) {
-        const issues = [];
-        const patterns = [
-            { pattern: /line protocol is down/i,  severity: "error",   desc: "Interface down",            cause: "Cáp bị ngắt hoặc cấu hình sai" },
-            { pattern: /not-trunking/i,            severity: "error",   desc: "Trunk không hoạt động",     cause: "DTP mismatch hoặc mode sai trên Gi0/2" },
-            { pattern: /native vlan mismatch/i,    severity: "error",   desc: "Native VLAN mismatch",      cause: "Hai đầu trunk có native VLAN khác nhau" },
-            { pattern: /input errors:\s*[1-9]/i,   severity: "warning", desc: "Input errors phát hiện",    cause: "Có thể do duplex mismatch" },
-            { pattern: /suspended/i,               severity: "warning", desc: "Port bị suspended",         cause: "STP hoặc Port Security suspend port",  resource: "Fa0/3, Fa0/4" },
-            { pattern: /not enabled/i,             severity: "warning", desc: "Feature không enabled",     cause: "STP VLAN10 chưa được bật trên port nào" },
-            { pattern: /administratively down/i,   severity: "error",   desc: "Shutdown thủ công",         cause: "Port/interface bị shutdown bằng lệnh" },
-        ];
-        for (const { pattern, severity, desc, cause, resource } of patterns) {
-            if (pattern.test(outputsText)) {
-                issues.push({ severity, description: desc, root_cause: cause, affected_resource: resource || '' });
-            }
-        }
-        return issues;
-    }
-
-    function generateFixes(issues, intent) {
-        const fixes = [];
-        for (const issue of issues) {
-            const desc = issue.description.toLowerCase();
-            if (desc.includes('shutdown')) {
-                fixes.push({ command: "no shutdown", description: "Bật lại interface đã bị shutdown", risk_level: "low" });
-            }
-            if (desc.includes('trunk')) {
-                fixes.push({ command: "switchport mode trunk", description: "Ép Gi0/2 sang chế độ trunk", risk_level: "low" });
-                fixes.push({ command: "switchport nonegotiate", description: "Tắt DTP negotiation trên trunk port", risk_level: "low" });
-            }
-            if (desc.includes('native vlan')) {
-                fixes.push({ command: "switchport trunk native vlan 99", description: "Đặt native VLAN thống nhất = 99", risk_level: "medium" });
-            }
-            if (desc.includes('suspended')) {
-                fixes.push({ command: "shutdown → no shutdown", description: "Bounce port Fa0/3, Fa0/4 để reset trạng thái", risk_level: "low" });
-            }
-            if (desc.includes('not enabled') && intent.includes('vlan')) {
-                fixes.push({ command: "interface vlan 10 → no shutdown", description: "Bật SVI VLAN 10 nếu đang bị shutdown", risk_level: "low" });
-            }
-        }
-        // Deduplicate
-        return fixes.filter((f, i, arr) => arr.findIndex(x => x.command === f.command) === i);
-    }
-
-    function generateSummary(issues, fixes, intent) {
-        if (!issues.length) return `Kiểm tra ${intent}: Không phát hiện vấn đề nghiêm trọng.`;
-        const critical = issues.filter(i => ['error', 'critical'].includes(i.severity)).length;
-        return `Phát hiện ${issues.length} vấn đề ${critical ? `(trong đó ${critical} nghiêm trọng)` : 'mức độ cảnh báo'}. Đề xuất ${fixes.length} lệnh sửa lỗi.`;
-    }
-
-
-    // ═══════════════════════════════════════════════════════════════
-    // INITIALIZATION
-    // ═══════════════════════════════════════════════════════════════
-
-    document.addEventListener('DOMContentLoaded', () => {
-        renderDeviceList();
-        renderSidebarPipeline();
-        renderModelPicker();
-    });
-
-    function renderDeviceList() {
-        const container = document.getElementById('deviceList');
-        container.innerHTML = APP.devices.map((d, i) => `
-            <div class="device-card ${i === APP.selectedDevice ? 'active' : ''}" onclick="selectDevice(${i})" id="device-${i}">
-                <div class="device-icon">${d.icon}</div>
-                <div class="device-info">
-                    <div class="device-name">${d.name}</div>
-                    <div class="device-ip">${d.ip}</div>
-                </div>
-                <div class="device-status ${d.status}"></div>
-            </div>
-        `).join('');
-    }
-
-    function renderSidebarPipeline() {
-        const labels = [
-            { key: 'intent',   label: '1. Phân tích ý định',  icon: '<i class="fas fa-brain"></i>' },
-            { key: 'ssh',      label: '2. Thực thi SSH',       icon: '<i class="fas fa-terminal"></i>' },
-            { key: 'analysis', label: '3. Phân tích kết quả',  icon: '<i class="fas fa-magnifying-glass"></i>' },
-            { key: 'fix',      label: '4. Gợi ý sửa lỗi',     icon: '<i class="fas fa-wrench"></i>' },
-        ];
-        const container = document.getElementById('sidebarPipeline');
-        container.innerHTML = labels.map(l => `
-            <div style="font-size:11px;padding:5px 0;display:flex;align-items:center;gap:8px;color:var(--text-muted)" id="sidebar-step-${l.key}">
-                <span class="step-icon">${l.icon}</span>
-                <span>${l.label}</span>
-            </div>
-        `).join('');
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // USER INTERACTIONS
-    // ═══════════════════════════════════════════════════════════════
-
-    function selectDevice(idx) {
-        APP.selectedDevice = idx;
-        renderDeviceList();
-        showToast(`Đã chọn ${APP.devices[idx].name}`, 'info');
-    }
-
-    function toggleAutoFix() {
-        APP.autoFix = document.getElementById('autoFixToggle').checked;
-        document.getElementById('autoFixWarn').classList.toggle('show', APP.autoFix);
-    }
-
-    function setQuery(text) {
-        document.getElementById('queryInput').value = text;
-        document.getElementById('queryInput').focus();
-    }
-
-    function handleInputKey(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            submitQuery();
-        }
-    }
-
-    function clearHistory() {
-        APP.history = [];
-        APP.lastResult = null;
-        APP.stats = { queries: 0, commands: 0, issues: 0, fixes: 0 };
-        updateStats();
-        resetPipeline();
-        document.getElementById('resultArea').innerHTML = `
-            <div class="empty-state" id="emptyState">
-                <div class="empty-state-icon"><i class="fas fa-robot"></i></div>
-                <h3>Sẵn sàng phân tích mạng</h3>
-                <p>Nhập câu hỏi bằng ngôn ngữ tự nhiên hoặc chọn lệnh mẫu phía trên. Agent sẽ phân tích, SSH tới thiết bị và đề xuất giải pháp tự động.</p>
-            </div>
-        `;
-        showToast('Đã xoá lịch sử', 'info');
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PIPELINE EXECUTION (Simulated)
-    // ═══════════════════════════════════════════════════════════════
-
-    async function submitQuery() {
-        const input = document.getElementById('queryInput');
-        const query = input.value.trim();
-        if (!query || APP.processing) return;
-
-        APP.processing = true;
-        document.getElementById('sendBtn').disabled = true;
-        resetPipeline();
-
-        const device = APP.devices[APP.selectedDevice];
-        const startTime = Date.now();
-
-        // Show loading
-        showLoading('Đang gửi lệnh tới AI...', 'LangGraph & Gemini đang làm việc bên Backend');
-        setProgress(15);
         
-        setPipelineState('intent', 'active');
-
-        try {
-            const response = await fetch("/api/analyze", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({ 
-                    query: query,
-                    preferred_model: APP.preferredModel
-                })
-            });
+        function doLogin() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
             
-            if (!response.ok) throw new Error("API Server lỗi");
-            const data = await response.json();
-            
-            // Hiển thị logs từ Backend gửi về (Fallback info, SSH status...)
-            if (data.agent_logs && data.agent_logs.length > 0) {
-                detectExpiredModels(data.agent_logs);
-                data.agent_logs.forEach(log => {
-                    const isError = log.includes("⚠️") || log.includes("lỗi");
-                    logConsole(`[BE] ${log}`, isError ? 'warning' : 'success');
-                });
-            }
-
-            // Tự động nhảy UI steps vì backend đã xử xong toàn bộ
-            setPipelineState('intent', 'done');
-            if (document.getElementById('conn1')) document.getElementById('conn1').classList.add('done');
-            setProgress(30);
-            
-            setPipelineState('ssh', 'active');
-            updateLoading('Thực thi SSH...', `Kết nối theo lệnh AI`);
-            await delay(400); 
-            setPipelineState('ssh', 'done');
-            if (document.getElementById('conn2')) document.getElementById('conn2').classList.add('done');
-            setProgress(50);
-            
-            setPipelineState('analysis', 'active');
-            updateLoading('Phân tích kết quả...', 'Gemini Pro đang kiểm tra output');
-            await delay(400);
-            setPipelineState('analysis', 'done');
-            if (document.getElementById('conn3')) document.getElementById('conn3').classList.add('done');
-            setProgress(75);
-            
-            setPipelineState('fix', 'active');
-            updateLoading('Trích xuất gợi ý sửa lỗi...', '');
-            await delay(400);
-            setPipelineState('fix', 'done');
-            setProgress(100);
-
-            // Xử lý dữ liệu trả về từ Python State
-            const durationMs = Date.now() - startTime;
-            
-            // Format format ssh output
-            const rawOutputsList = Object.entries(data.ssh_output || {}).map(([cmd, out]) => ({
-                command: cmd,
-                output: out,
-                device_ip: data.device_ip || "192.168.1.1",
-                duration_ms: Math.floor(50 + Math.random() * 200),
-                timestamp: new Date().toISOString()
-            }));
-            
-            // Format issues
-            const issues = [];
-            if (data.status_severity !== "ok" && data.root_cause) {
-                issues.push({
-                    severity: data.status_severity.toLowerCase() === 'critical' ? 'error' : 'warning',
-                    description: "Vấn đề mạng phát hiện bởi AI",
-                    root_cause: data.root_cause,
-                    affected_resource: data.device_ip
-                });
-            }
-
-            // Format fixes
-            const fixes = (data.fixes || []).map(f => ({
-                command: f,
-                description: "AI Đề xuất chạy lệnh cấu hình này",
-                risk_level: "medium"
-            }));
-
-            const result = {
-                query, 
-                intent: data.intent_summary || "Phân tích tự động", 
-                summary: "Phát hiện xong sự cố mạng", 
-                durationMs,
-                commands_run: rawOutputsList.length,
-                raw_outputs: rawOutputsList,
-                issues_found: issues,
-                fix_suggestions: fixes,
-                fixes_applied: [],
-                device: device.name,
-                device_ip: data.device_ip || device.ip,
-                timestamp: new Date().toLocaleTimeString('vi-VN')
-            };
-
-            // Update stats
-            APP.stats.queries++;
-            APP.stats.commands += rawOutputsList.length;
-            APP.stats.issues += issues.length;
-            updateStats();
-
-            // Save & Render
-            APP.lastResult = result;
-            APP.history.push(result);
-            renderResults(result);
-            
-            showToast(`Hoàn thành trong ${durationMs}ms qua Backend AI Server!`, 'success');
-            
-        } catch(e) {
-            console.error(e);
-            showToast("Lỗi kết nối tới Backend Python (Hãy chắc chắn bạn đã chạy python3 server.py)", "error");
-        } finally {
-            input.value = '';
-            APP.processing = false;
-            document.getElementById('sendBtn').disabled = false;
-            hideLoading();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // RENDERING
-    // ═══════════════════════════════════════════════════════════════
-
-    function renderResults(result) {
-        const area = document.getElementById('resultArea');
-        area.innerHTML = `
-            <div class="results-container">
-                <!-- Tabs -->
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab(event, 'tab-summary')"><i class="fas fa-file-alt"></i> Kết quả</button>
-                    <button class="tab-btn" onclick="switchTab(event, 'tab-ssh')"><i class="fas fa-terminal"></i> SSH Output</button>
-                    <button class="tab-btn" onclick="switchTab(event, 'tab-fix')"><i class="fas fa-tools"></i> Fix Commands</button>
-                    <button class="tab-btn" onclick="switchTab(event, 'tab-topo')"><i class="fas fa-project-diagram"></i> Topology</button>
-                    <button class="tab-btn" onclick="switchTab(event, 'tab-history')"><i class="fas fa-history"></i> Lịch sử</button>
-                </div>
-
-                <!-- Tab: Summary -->
-                <div class="tab-content active" id="tab-summary">
-                    ${renderSummaryTab(result)}
-                </div>
-
-                <!-- Tab: SSH -->
-                <div class="tab-content" id="tab-ssh">
-                    ${renderSSHTab(result)}
-                </div>
-
-                <!-- Tab: Fix -->
-                <div class="tab-content" id="tab-fix">
-                    ${renderFixTab(result)}
-                </div>
-
-                <!-- Tab: Topology -->
-                <div class="tab-content" id="tab-topo">
-                    ${renderTopologyTab(result)}
-                </div>
-
-                <!-- Tab: History -->
-                <div class="tab-content" id="tab-history">
-                    ${renderHistoryTab()}
-                </div>
-            </div>
-        `;
-
-        // Animate topology after render
-        setTimeout(() => initTopology(), 100);
-    }
-
-    function renderSummaryTab(r) {
-        return `
-            <!-- Metrics -->
-            <div class="metrics-row" style="margin-bottom:var(--space-lg)">
-                <div class="metric-card">
-                    <div class="metric-icon" style="color:var(--primary)"><i class="fas fa-brain"></i></div>
-                    <div class="metric-value" style="color:var(--node-intent);font-size:14px;word-break:break-all">${r.intent}</div>
-                    <div class="metric-label">Intent</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon" style="color:var(--node-ssh)"><i class="fas fa-terminal"></i></div>
-                    <div class="metric-value">${r.commands_run}</div>
-                    <div class="metric-label">Commands</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon" style="color:var(--error)"><i class="fas fa-triangle-exclamation"></i></div>
-                    <div class="metric-value" style="color:${r.issues_found.length ? 'var(--error)' : 'var(--success)'}">${r.issues_found.length}</div>
-                    <div class="metric-label">Issues</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon" style="color:var(--text-muted)"><i class="fas fa-clock"></i></div>
-                    <div class="metric-value">${r.durationMs}ms</div>
-                    <div class="metric-label">Thời gian</div>
-                </div>
-            </div>
-
-            <!-- Summary -->
-            <div class="result-card" style="margin-bottom:var(--space-lg)">
-                <div class="result-card-header">
-                    <h3><i class="fas fa-bolt" style="color:var(--warning); margin-right:8px;"></i> Tóm tắt</h3>
-                    <span style="font-size:10px;color:var(--text-muted)">${r.device} (${r.device_ip})</span>
-                </div>
-                <div class="result-card-body">
-                    <p style="font-size:13px;line-height:1.7;color:var(--text-secondary)">${r.summary}</p>
-                </div>
-            </div>
-
-            <!-- Issues -->
-            <div class="result-card">
-                <div class="result-card-header">
-                    <h3><i class="fas fa-exclamation-triangle" style="color:var(--warning); margin-right:8px;"></i> Vấn đề phát hiện (${r.issues_found.length})</h3>
-                </div>
-                <div class="result-card-body">
-                    ${r.issues_found.length === 0 ? `
-                        <div class="no-issues"><i class="fas fa-check-circle"></i> Không phát hiện vấn đề nghiêm trọng</div>
-                    ` : r.issues_found.map(issue => `
-                        <div class="issue-item">
-                            <span class="issue-badge ${issue.severity}">${issue.severity.toUpperCase()}</span>
-                            <div>
-                                <div class="issue-desc">${issue.description}</div>
-                                <div class="issue-cause"><i class="fas fa-search"></i> ${issue.root_cause}${issue.affected_resource ? ` · <i class="fas fa-location-dot"></i> ${issue.affected_resource}` : ''}</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    function renderSSHTab(r) {
-        if (!r.raw_outputs.length) return '<div style="padding:var(--space-lg);color:var(--text-muted);text-align:center">Không có SSH output</div>';
-        return r.raw_outputs.map((o, i) => `
-            <div class="ssh-output-block">
-                <div class="ssh-cmd-header" onclick="toggleSSH(${i})">
-                    <span class="ssh-cmd-title">
-                        <i class="fas fa-chevron-right"></i>
-                        <code>${o.command}</code>
-                    </span>
-                    <span class="ssh-cmd-meta">${o.duration_ms}ms · ${o.device_ip}</span>
-                </div>
-                <pre class="ssh-output-pre" id="ssh-pre-${i}">${escapeHtml(o.output)}</pre>
-            </div>
-        `).join('');
-    }
-
-    function renderFixTab(r) {
-        if (!r.fix_suggestions.length) {
-            return '<div style="padding:var(--space-lg);color:var(--text-muted);text-align:center">✅ Không có lệnh fix nào cần thiết</div>';
-        }
-
-        const appliedHtml = r.fixes_applied.length > 0
-            ? `<div class="no-issues" style="margin-bottom:var(--space-md)"><i class="fas fa-check-circle"></i> Đã áp dụng ${r.fixes_applied.length} lệnh tự động</div>`
-            : `<button class="apply-all-btn" onclick="applyAllFixes()"><i class="fas fa-bolt-lightning"></i> Áp dụng tất cả fix commands</button>`;
-
-        return `
-            <div class="result-card">
-                <div class="result-card-header">
-                    <h3><i class="fas fa-magic" style="color:var(--primary); margin-right:8px;"></i> ${r.fix_suggestions.length} lệnh sửa lỗi đề xuất</h3>
-                </div>
-                <div class="result-card-body">
-                    ${r.fix_suggestions.map(fix => `
-                        <div class="fix-item">
-                            <div class="fix-icon ${fix.risk_level}"><i class="fas fa-wrench"></i></div>
-                            <div class="fix-content">
-                                <div class="fix-command">${fix.command}</div>
-                                <div class="fix-desc">${fix.description}</div>
-                            </div>
-                            <span class="fix-risk ${fix.risk_level}">Risk: ${fix.risk_level.toUpperCase()}</span>
-                        </div>
-                    `).join('')}
-                    ${appliedHtml}
-                </div>
-            </div>
-        `;
-    }
-
-    function renderTopologyTab() {
-        return `
-            <div class="result-card">
-                <div class="result-card-header">
-                    <h3><i class="fas fa-project-diagram"></i> Network Topology</h3>
-                    <span style="font-size:10px; color:var(--text-muted)">Sơ đồ mạng hiện tại</span>
-                </div>
-                <div class="result-card-body" style="padding:0">
-                    <div class="topology-canvas" id="topoCanvas" style="height:350px;">
-                        <svg class="topo-lines" id="topoSVG"></svg>
-                        <!-- Nodes positioned by JS -->
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    function renderHistoryTab() {
-        if (!APP.history.length) return '<div style="padding:var(--space-lg);color:var(--text-muted);text-align:center">Chưa có lịch sử</div>';
-        return `
-            <div class="result-card">
-                <div class="result-card-header">
-                    <h3><i class="fas fa-clock-rotate-left"></i> Lịch sử truy vấn</h3>
-                </div>
-                <div class="result-card-body" style="padding:0">
-                    ${APP.history.slice().reverse().map(h => `
-                        <div class="history-item" onclick="setQuery('${h.query.replace(/'/g, "\\'")}')">
-                            <span class="history-time">${h.timestamp}</span>
-                            <span class="history-query">${h.query}</span>
-                            <span class="history-intent">${h.intent}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // TOPOLOGY MAP
-    // ═══════════════════════════════════════════════════════════════
-
-    function initTopology() {
-        const canvas = document.getElementById('topoCanvas');
-        if (!canvas) return;
-
-        const w = canvas.offsetWidth;
-        const h = canvas.offsetHeight;
-        const centerX = w / 2;
-
-        // AI Agent box position
-        const aiY = 30;
-
-        // Node positions
-        const nodes = [
-            { id: 0, x: centerX - 100, y: 100, ...APP.devices[0] },  // Core Switch
-            { id: 1, x: centerX + 100, y: 100, ...APP.devices[1] },  // Core Router
-            { id: 2, x: centerX - 160, y: 220, ...APP.devices[2] },  // Access 1
-            { id: 3, x: centerX + 160, y: 220, ...APP.devices[3] },  // Access 2
-        ];
-
-        // SVG lines
-        const svg = document.getElementById('topoSVG');
-        svg.innerHTML = `
-            <!-- AI Agent to devices -->
-            <line x1="${centerX}" y1="${aiY + 30}" x2="${nodes[0].x}" y2="${nodes[0].y - 10}" class="active"/>
-            <line x1="${centerX}" y1="${aiY + 30}" x2="${nodes[1].x}" y2="${nodes[1].y - 10}" class="active"/>
-            <!-- Core to Access -->
-            <line x1="${nodes[0].x}" y1="${nodes[0].y + 40}" x2="${nodes[2].x}" y2="${nodes[2].y - 10}"/>
-            <line x1="${nodes[0].x}" y1="${nodes[0].y + 40}" x2="${nodes[3].x}" y2="${nodes[3].y - 10}"/>
-            <line x1="${nodes[1].x}" y1="${nodes[1].y + 40}" x2="${nodes[3].x}" y2="${nodes[3].y - 10}"/>
-            <!-- Core interconnect -->
-            <line x1="${nodes[0].x + 28}" y1="${nodes[0].y + 15}" x2="${nodes[1].x - 28}" y2="${nodes[1].y + 15}" class="active"/>
-            <!-- Labels -->
-            <text x="${centerX}" y="${aiY + 18}" text-anchor="middle" fill="var(--primary)" font-weight="600" font-size="11">SSH</text>
-            <text x="${centerX}" y="${nodes[0].y + 28}" text-anchor="middle" fill="var(--primary)" font-size="9">Trunk</text>
-        `;
-
-        // AI Agent node
-        const aiNode = document.createElement('div');
-        aiNode.className = 'topo-node active';
-        aiNode.style.cssText = `left:${centerX - 28}px;top:${aiY - 12}px`;
-        aiNode.innerHTML = `
-            <div class="topo-node-box" style="background:linear-gradient(135deg,var(--primary-dim),var(--node-intent));border-color:var(--primary)">🤖</div>
-            <div class="topo-node-label" style="color:var(--primary)">AI Agent</div>
-        `;
-        canvas.appendChild(aiNode);
-
-        // Device nodes
-        nodes.forEach((n, i) => {
-            const el = document.createElement('div');
-            el.className = `topo-node ${i === APP.selectedDevice ? 'active' : ''}`;
-            el.style.cssText = `left:${n.x - 28}px;top:${n.y - 12}px`;
-            el.onclick = () => selectDevice(i);
-            
-            // Map icon back to FontAwesome
-            let faIcon = '<i class="fas fa-server"></i>';
-            if (n.icon === '🖧') faIcon = '<i class="fas fa-network-wired"></i>';
-            if (n.icon === '🌐') faIcon = '<i class="fas fa-globe"></i>';
-
-            el.innerHTML = `
-                <div class="topo-node-box">${faIcon}</div>
-                <div class="topo-node-label">${n.name}</div>
-                <div class="topo-node-ip">${n.ip}</div>
-            `;
-            canvas.appendChild(el);
-        });
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════════════════════════
-
-    function switchMainNav(tabId) {
-        // Update sidebar nav state
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        if (event && event.currentTarget.classList.contains('nav-item')) {
-            event.currentTarget.classList.add('active');
-        } else {
-            // Find by context if event is missing (e.g. init)
-            const items = document.querySelectorAll('.nav-item');
-            items.forEach(it => {
-                if (it.getAttribute('onclick').includes(`'${tabId}'`)) it.classList.add('active');
-            });
-        }
-
-        // Toggle main content areas
-        document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
-        const tabEl = document.getElementById('tab-' + tabId);
-        if (tabEl) tabEl.classList.add('active');
-
-        if (tabId === 'providers') renderProviders();
-        if (tabId === 'devices') renderDevices();
-    }
-
-    function switchDashboardSubTab(subId) {
-        const items = document.querySelectorAll('#tab-dashboard .sub-nav-item');
-        items.forEach(it => {
-            if (it.textContent.toLowerCase() === subId) it.classList.add('active');
-            else it.classList.remove('active');
-        });
-
-        document.getElementById('dash-overview').style.display = subId === 'overview' ? 'block' : 'none';
-        document.getElementById('dash-details').style.display = subId === 'details' ? 'block' : 'none';
-        
-        if (subId === 'details') renderDashboardDetails();
-    }
-
-    function renderDashboardDetails() {
-        const table = document.getElementById('dashDetailsTable');
-        if (APP.history.length === 0) return;
-
-        table.innerHTML = APP.history.slice().reverse().map(h => `
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
-                <td style="padding:12px;">${h.timestamp}</td>
-                <td style="padding:12px;"><span style="color:var(--primary); font-family:monospace;">${h.device_ip}</span></td>
-                <td style="padding:12px;">${h.intent}</td>
-                <td style="padding:12px;">
-                    <span class="topbar-badge ${h.issues_found.length === 0 ? 'badge-online' : 'badge-sim'}" style="font-size:9px;">
-                        ${h.issues_found.length === 0 ? 'Success' : 'Issues Found'}
-                    </span>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    function renderDevices() {
-        const grid = document.getElementById('deviceGrid');
-        grid.innerHTML = APP.devices.map(d => `
-            <div class="result-card device-item" style="display:flex; flex-direction:column; gap:8px;">
-                <div class="result-card-header">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div class="brand-icon" style="background:var(--bg-elevated); width:36px; height:36px;">${d.icon}</div>
-                        <div>
-                            <h4 style="font-size:14px; margin:0;">${d.name}</h4>
-                            <span style="font-size:10px; color:var(--text-muted); font-family:monospace;">${d.ip}</span>
-                        </div>
-                    </div>
-                    <span class="device-status ${d.status}"></span>
-                </div>
-                <div class="result-card-body" style="padding:16px; font-size:12px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                        <span style="color:var(--text-muted);">Mô hình:</span>
-                        <span style="color:#fff;">${d.type}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                        <span style="color:var(--text-muted);">Vị trí:</span>
-                        <span style="color:#fff;">${d.location}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between;">
-                        <span style="color:var(--text-muted);">Quản lý:</span>
-                        <span style="color:var(--success);">Online</span>
-                    </div>
-                    <button class="btn btn-ghost" style="width:100%; margin-top:16px; font-size:11px; justify-content:center;" onclick="openTerminal('${d.name}', '${d.ip}')">
-                        <i class="fas fa-terminal" style="margin-right:8px;"></i> Open SSH Console
-                    </button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    function clearConsole() {
-        document.getElementById('fullConsoleLog').innerHTML = `
-            <div style="color:var(--text-muted); text-align:center; padding:40px;">No console logs yet. System ready.</div>
-        `;
-        showToast('Đã xóa trắng Console Log', 'info');
-    }
-
-    function downloadLogs() {
-        const text = document.getElementById('fullConsoleLog').innerText;
-        const blob = new Blob([text], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `netai-logs-${new Date().getTime()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        showToast('Đã xuất file log hệ thống', 'success');
-    }
-
-    function renderProviders() {
-        const oauthGrid = document.getElementById('oauthProvidersGrid');
-        const freeGrid = document.getElementById('freeProvidersGrid');
-        
-        oauthGrid.innerHTML = '';
-        freeGrid.innerHTML = '';
-
-        APP.providers.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'provider-card';
-            card.onclick = () => showProviderDetails(p.id);
-            
-            const statusClass = p.status === 'ready' || p.status === 'connected' ? 'status-ready' : 'status-none';
-            const statusText = p.status === 'connected' ? `${p.connections} Connected` : p.status === 'ready' ? 'Ready' : 'No connections';
-
-            card.innerHTML = `
-                <div class="provider-icon">${p.icon}</div>
-                <div class="provider-info">
-                    <div class="provider-name">${p.name}</div>
-                    <div class="provider-status">
-                        <span class="status-indicator ${statusClass}"></span>
-                        ${statusText}
-                    </div>
-                </div>
-            `;
-
-            if (p.group === 'oauth') oauthGrid.appendChild(card);
-            else freeGrid.appendChild(card);
-        });
-    }
-
-    function showProviderDetails(id) {
-        const p = APP.providers.find(x => x.id === id);
-        if (!p) return;
-
-        document.getElementById('modalProviderIcon').innerHTML = p.icon;
-        document.getElementById('modalProviderName').textContent = p.name;
-        document.getElementById('modalProviderStatus').textContent = p.status === 'connected' ? `${p.connections} Active Connections` : p.status === 'ready' ? 'Service Ready' : 'Service Not Connected';
-        
-        const modelsArea = document.getElementById('modalProviderModels');
-        if (!p.models || p.models.length === 0) {
-            modelsArea.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">No models available for this provider.</div>';
-        } else {
-            modelsArea.innerHTML = p.models.map(m => `
-                <div class="model-item ${APP.preferredModel === m.name ? 'active' : ''}" onclick="selectModel('${m.name}')">
-                    <div class="model-info">
-                        <h4>${m.name} ${APP.preferredModel === m.name ? '<span style="color:var(--success); font-size:10px;">(Connected)</span>' : ''}</h4>
-                        <p>Rate Limit: ${m.rpm} RPM</p>
-                    </div>
-                    <div class="model-quota">
-                        <div style="font-size:12px; font-weight:700; color:var(--primary);">${m.quota}%</div>
-                        <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">Quota Left</div>
-                        <div class="quota-bar"><div class="quota-fill" style="width:${m.quota}%"></div></div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        document.getElementById('providerModal').classList.add('active');
-    }
-
-    function closeProviderModal(e) {
-        document.getElementById('providerModal').classList.remove('active');
-    }
-
-    function openTerminal(name, ip) {
-        document.getElementById('terminalTitle').textContent = `SSH Console — ${name}`;
-        document.getElementById('terminalDevice').textContent = `Connected to ${ip}`;
-        document.getElementById('terminalModal').classList.add('active');
-        document.getElementById('terminalInput').focus();
-        
-        // Populate with current logs if any
-        syncTerminalLogs();
-    }
-
-    function closeTerminalModal(e) {
-        document.getElementById('terminalModal').classList.remove('active');
-    }
-
-    function syncTerminalLogs() {
-        const consoleLogs = document.getElementById('fullConsoleLog').innerHTML;
-        document.getElementById('terminalLogs').innerHTML = consoleLogs;
-        const body = document.querySelector('.terminal-body');
-        body.scrollTop = body.scrollHeight;
-    }
-
-    async function handleTerminalKey(e) {
-        if (e.key === 'Enter') {
-            const input = document.getElementById('terminalInput');
-            const cmd = input.value.trim();
-            if (!cmd) return;
-            
-            input.value = '';
-            logTerminal(`> ${cmd}`, 'cmd');
-            
-            // If it's a known cisco command, simulate it, otherwise send to backend (future feature)
-            if (cmd === 'help' || cmd === '?') {
-                logTerminal("Available commands: show vlan, show ip interface brief, show version, exit", "info");
-            } else if (cmd === 'exit') {
-                closeTerminalModal();
+            if(u === 'admin' && p === 'admin') {
+                localStorage.setItem('netai_auth', 'true');
+                window.location.href = '/portal.html';
             } else {
-                logTerminal(`Executing: ${cmd}...`, 'info');
-                // For now, just a placeholder or could trigger the analyze API
-                showToast(`Đã nhận lệnh: ${cmd}`, 'info');
+                document.getElementById('errorMsg').style.display = 'block';
+                setTimeout(() => { document.getElementById('errorMsg').style.display = 'none'; }, 3000);
             }
         }
-    }
-
-    function logTerminal(msg, type = 'info') {
-        const logs = document.getElementById('terminalLogs');
-        const entry = document.createElement('div');
-        const color = type === 'cmd' ? '#fff' : type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : '#0f0';
-        entry.style.color = color;
-        entry.style.marginBottom = '4px';
-        entry.textContent = msg;
-        logs.appendChild(entry);
         
-        const body = document.querySelector('.terminal-body');
-        body.scrollTop = body.scrollHeight;
-        
-        // Also log to main console
-        logConsole(`[Terminal] ${msg}`, type === 'cmd' ? 'info' : type);
-    }
-
-    function selectModel(modelName) {
-        APP.preferredModel = modelName;
-        renderProviders();
-        closeProviderModal();
-        renderModelPicker();
-        showToast(`Đã kết nối với model: ${modelName}`, 'success');
-        logConsole(`Đã thay đổi model AI ưu tiên thành: ${modelName}`, 'info');
-    }
-
-    // ─── Model Picker in chat bar ────────────────────────────────────
-    APP.expiredModels = new Set();
-
-    const PICKER_PROVIDERS = [
-        { label: 'Google Gemini', prefix: 'gemini/' },
-        { label: 'Groq Cloud',    prefix: 'groq/' },
-        { label: 'OpenRouter',    prefix: 'openrouter/' },
-    ];
-
-    function getAllPickerModels() {
-        const result = [];
-        for (const p of APP.providers) {
-            if (!p.models || p.models.length === 0) continue;
-            const group = PICKER_PROVIDERS.find(g => p.models.some(m => m.name.startsWith(g.prefix)));
-            if (!group) continue;
-            result.push({ label: p.name, models: p.models });
-        }
-        return result;
-    }
-
-    function renderModelPicker() {
-        const current = APP.preferredModel;
-        // Update button label
-        const label = current.replace(/^(gemini|groq|openrouter)\//, '');
-        const btn = document.getElementById('modelPickerBtn');
-        const lbl = document.getElementById('modelPickerLabel');
-        if (lbl) lbl.textContent = label;
-        if (btn) {
-            btn.classList.toggle('expired-model', APP.expiredModels.has(current));
-        }
-
-        // Render dropdown list
-        const list = document.getElementById('modelDropdownList');
-        if (!list) return;
-        let html = '';
-        for (const p of APP.providers) {
-            if (!p.models || p.models.length === 0) continue;
-            // Only show real providers
-            if (['claude','antigravity','openai_codex','github_copilot'].includes(p.id)) continue;
-            html += `<div class="model-group">
-                <div class="model-group-label">${p.name}</div>`;
-            for (const m of p.models) {
-                const isActive  = m.name === current;
-                const isExpired = APP.expiredModels.has(m.name);
-                const shortName = m.name.replace(/^(gemini|groq|openrouter)\//, '');
-                html += `<div class="model-option${isActive?' active':''}${isExpired?' expired':''}"
-                    onclick="${isExpired ? '' : `pickModel('${m.name}')`}"
-                    title="${m.name}">
-                    <span class="model-opt-name">${shortName}</span>
-                    ${isExpired ? '<span class="model-opt-badge">⚠ hết hạn</span>' : ''}
-                    ${isActive  ? '<i class="fas fa-check model-opt-check"></i>' : ''}
-                </div>`;
-            }
-            html += `</div>`;
-        }
-        list.innerHTML = html;
-    }
-
-    function toggleModelPicker(e) {
-        e.stopPropagation();
-        const dd = document.getElementById('modelDropdown');
-        const isOpen = dd.classList.contains('open');
-        if (!isOpen) renderModelPicker();
-        dd.classList.toggle('open', !isOpen);
-    }
-
-    function pickModel(name) {
-        APP.preferredModel = name;
-        renderModelPicker();
-        document.getElementById('modelDropdown').classList.remove('open');
-        showToast(`Model: ${name.replace(/^(gemini|groq|openrouter)\//, '')}`, 'success');
-    }
-
-    // Close picker when clicking outside
-    document.addEventListener('click', (e) => {
-        const wrap = document.getElementById('modelPickerWrap');
-        if (wrap && !wrap.contains(e.target)) {
-            document.getElementById('modelDropdown')?.classList.remove('open');
-        }
-    });
-
-    function markModelExpired(modelName) {
-        if (!APP.expiredModels.has(modelName)) {
-            APP.expiredModels.add(modelName);
-            const short = modelName.replace(/^(gemini|groq|openrouter)\//, '');
-            showToast(`⚠️ Model <b>${short}</b> không khả dụng (hết hạn hoặc tạm dừng)`, 'error');
-        }
-        // Auto-switch nếu đang dùng model hết hạn
-        if (APP.preferredModel === modelName) {
-            const allModels = APP.providers.flatMap(p => p.models || []).map(m => m.name)
-                .filter(n => !APP.expiredModels.has(n) && !['claude','antigravity','openai_codex','github_copilot'].some(x => n.startsWith(x)));
-            if (allModels.length > 0) {
-                APP.preferredModel = allModels[0];
-                showToast(`Tự động chuyển sang: ${allModels[0].replace(/^(gemini|groq|openrouter)\//, '')}`, 'info');
-            }
-        }
-        renderModelPicker();
-    }
-
-    function detectExpiredModels(agentLogs) {
-        // 429 = tạm thời quá tải (KHÔNG đánh dấu expired)
-        // 404 / 400 / NOT_FOUND / No endpoints = thực sự hết hạn hoặc lỗi cấu hình
-        const rateLimit = /429|rate.limit|temporarily rate.limited/i;
-        const expired   = /404|400|No endpoints found|NOT_FOUND|INVALID_ARGUMENT|not found for API|not supported/i;
-        // Pattern: "Model <name> lỗi: ..."
-        const linePattern = /^Model (.+?) lỗi[:\s]/i;
-
-        for (const log of agentLogs) {
-            const match = log.match(linePattern);
-            if (!match) continue;
-            const modelName = match[1];
-
-            if (expired.test(log)) {
-                markModelExpired(modelName);
-            } else if (rateLimit.test(log)) {
-                const short = modelName.replace(/^(gemini|groq|openrouter)\//, '');
-                showToast(`⏳ Model <b>${short}</b> đang quá tải, thử model tiếp theo...`, 'info');
-            }
-        }
-    }
-
-    function testAllProviders(group) {
-        showToast(`Đang kiểm tra kết nối tới các model ${group}...`, 'info');
-        APP.processing = true;
-        let count = 0;
-        const interval = setInterval(() => {
-            count++;
-            if (count > 3) {
-                clearInterval(interval);
-                APP.processing = false;
-                showToast(`Đã kiểm tra xong ${group} providers. Tất cả hệ thống sẵn sàng.`, 'success');
-                return;
-            }
-            logConsole(`Kiểm tra provider ${group} step ${count}: [OK]`, 'success');
-        }, 600);
-    }
-
-
-    function switchTab(event, tabId) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        event.target.classList.add('active');
-        document.getElementById(tabId).classList.add('active');
-        if (tabId === 'tab-topo') setTimeout(() => initTopology(), 50);
-    }
-
-    function toggleSSH(idx) {
-        const pre = document.getElementById(`ssh-pre-${idx}`);
-        pre.classList.toggle('collapsed');
-    }
-
-    async function applyAllFixes() {
-        if (!APP.lastResult || APP.processing) return;
-        
-        const deviceIp = APP.lastResult.device_ip;
-        const commands = APP.lastResult.fix_suggestions.map(f => f.command);
-        
-        if (commands.length === 0) return;
-
-        APP.processing = true;
-        showLoading('Đang triển khai cấu hình...', `Đẩy ${commands.length} lệnh tới ${deviceIp}`);
-        
-        try {
-            const response = await fetch("/api/apply-fix", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({ device_ip: deviceIp, commands: commands })
-            });
-            
-            if (!response.ok) throw new Error("API Apply Fix lỗi");
-            const data = await response.json();
-            
-            if (data.status === "success") {
-                APP.lastResult.fixes_applied = commands;
-                APP.stats.fixes += commands.length;
-                updateStats();
-                renderResults(APP.lastResult);
-                showToast(`✅ Đã triển khai thành công ${commands.length} lệnh cấu hình!`, 'success');
-            } else {
-                showToast(`❌ Lỗi triển khai: ${data.output}`, 'error');
-            }
-            
-            if (data.agent_logs) {
-                data.agent_logs.forEach(log => logConsole(log, 'success'));
-            }
-            
-        } catch(e) {
-            console.error(e);
-            showToast("Lỗi kết nối khi triển khai cấu hình", "error");
-        } finally {
-            APP.processing = false;
-            hideLoading();
-        }
-    }
-
-
-    function setPipelineState(node, state) {
-        const el = document.querySelector(`.pipeline-node[data-node="${node}"]`);
-        if (el) el.setAttribute('data-state', state);
-
-        // Sidebar
-        const sideEl = document.getElementById(`sidebar-step-${node}`);
-        if (sideEl) {
-            const icons = { 
-                idle: '<i class="far fa-circle"></i>', 
-                active: '<i class="fas fa-circle-notch fa-spin"></i>', 
-                done: '<i class="fas fa-check-circle"></i>', 
-                error: '<i class="fas fa-exclamation-circle"></i>' 
-            };
-            sideEl.querySelector('.step-icon').innerHTML = icons[state] || '<i class="far fa-circle"></i>';
-            sideEl.style.color = state === 'done' ? 'var(--success)' : state === 'active' ? 'var(--primary)' : 'var(--text-muted)';
-        }
-    }
-
-    function resetPipeline() {
-        ['intent', 'ssh', 'analysis', 'fix'].forEach(n => setPipelineState(n, 'idle'));
-        ['conn1', 'conn2', 'conn3'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.remove('done');
+        document.getElementById('password').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') doLogin();
         });
-    }
-
-    function updateStats() {
-        if (document.getElementById('dashTotalReq')) document.getElementById('dashTotalReq').textContent = APP.stats.queries;
-        if (document.getElementById('dashTotalCmd')) document.getElementById('dashTotalCmd').textContent = APP.stats.commands;
-        if (document.getElementById('dashTotalIssues')) document.getElementById('dashTotalIssues').textContent = APP.stats.issues;
         
-        // Legacy support if needed
-        if (document.getElementById('statQueries')) document.getElementById('statQueries').textContent = APP.stats.queries;
-        if (document.getElementById('statCommands')) document.getElementById('statCommands').textContent = APP.stats.commands;
-        if (document.getElementById('statIssues')) document.getElementById('statIssues').textContent = APP.stats.issues;
-        if (document.getElementById('statFixes')) document.getElementById('statFixes').textContent = APP.stats.fixes;
+        // Auto-redirect if already logged in (optional, kept manual for demo viewing)
+        // if (localStorage.getItem('netai_auth') === 'true') {
+        //     window.location.href = '/portal.html'; 
+        // }
 
-        // Update Recent Requests Panel
-        updateRecentRequests();
-    }
-
-    function updateRecentRequests() {
-        const list = document.getElementById('recentRequestsList');
-        if (!list) return;
-
-        if (!APP.history.length) {
-            list.innerHTML = '<div style="text-align:center; padding: 40px 0; color:var(--text-muted); font-size:12px;">No requests yet.</div>';
-            return;
+        /* App Chat Modal Scripts */
+        function setAppChatInput(text) {
+            document.getElementById('appChatInput').value = text;
+            document.getElementById('appChatInput').focus();
         }
 
-        list.innerHTML = APP.history.slice().reverse().map(h => `
-            <div class="log-entry" style="cursor:pointer; transition:0.2s;" onclick="setQuery('${h.query.replace(/'/g, "\\'")}')">
-                <div class="log-time">${h.timestamp}</div>
-                <div class="log-msg" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    <span style="color:var(--primary); margin-right:4px;">#</span> ${h.query}
-                </div>
-            </div>
-        `).join('');
-    }
+        function switchToLogin() {
+            closeAppChatModal();
+            setTimeout(openLogin, 300);
+        }
 
-    function logConsole(msg, type="info") {
-        const consoleEl = document.getElementById('fullConsoleLog');
-        if (!consoleEl) return;
-
-
-        const color = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : type === 'warning' ? 'var(--warning)' : 'var(--text-secondary)';
-        const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
-        const entry = document.createElement('div');
-        entry.style.color = color;
-        entry.innerHTML = `<span style="opacity:0.5">[${time}]</span> ${msg}`;
-        consoleEl.appendChild(entry);
-        consoleEl.parentElement.scrollTop = consoleEl.parentElement.scrollHeight;
-    }
-
-    function showLoading(text, sub) {
-        logConsole(text + (sub ? ' — ' + sub : ''), 'info');
-        document.getElementById('loadingText').textContent = text;
-        document.getElementById('loadingSub').textContent = sub;
-        document.getElementById('loadingOverlay').classList.add('active');
-    }
-    function updateLoading(text, sub) {
-        logConsole(text + (sub ? ' — ' + sub : ''), 'info');
-        document.getElementById('loadingText').textContent = text;
-        document.getElementById('loadingSub').textContent = sub;
-    }
-    function hideLoading() {
-        document.getElementById('loadingOverlay').classList.remove('active');
-        setProgress(0);
-    }
-    function setProgress(pct) {
-        document.getElementById('progressFill').style.width = pct + '%';
-    }
-
-    function showToast(msg, type = 'info') {
-        logConsole(msg, type);
-        const container = document.getElementById('toasts');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
+        function openAppChatModal() {
+            document.getElementById('appChatModal').style.display = 'flex';
+            setTimeout(() => { document.getElementById('appChatModal').classList.add('active'); }, 10);
+            document.getElementById('appChatInput').focus();
+        }
+        function closeAppChatModal() {
+            document.getElementById('appChatModal').classList.remove('active');
+            setTimeout(() => { document.getElementById('appChatModal').style.display = 'none'; }, 300);
+        }
+        function clearAppChat() {
+            const body = document.getElementById('appChatBody');
+            const pills = document.querySelector('.pills-container');
+            const firstMsg = document.querySelector('.msg-row.ai');
+            body.innerHTML = '';
+            if(pills) body.appendChild(pills);
+            if(firstMsg) body.appendChild(firstMsg);
+        }
         
-        const icons = {
-            success: '<i class="fas fa-check-circle"></i>',
-            error: '<i class="fas fa-exclamation-triangle"></i>',
-            info: '<i class="fas fa-info-circle"></i>'
-        };
+        async function homepageSendMessage() {
+            const input = document.getElementById('appChatInput');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            // Append User Message
+            const body = document.getElementById('appChatBody');
+            const userRow = document.createElement('div');
+            userRow.className = 'msg-row user';
+            userRow.innerHTML = `
+                <div class="msg-avatar"><i class="fas fa-user"></i></div>
+                <div><div class="msg-bubble">${text}</div></div>
+            `;
+            body.appendChild(userRow);
+            input.value = '';
+            body.scrollTop = body.scrollHeight;
 
-        toast.innerHTML = `<span>${icons[type] || icons.info}</span> ${msg}`;
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.animation = 'slideOut 0.3s ease forwards';
-            setTimeout(() => toast.remove(), 300);
-        }, 4000);
-    }
+            // Show Loading
+            const loadingRow = document.createElement('div');
+            loadingRow.className = 'msg-row ai loading-row';
+            loadingRow.innerHTML = `
+                <div class="msg-avatar"><i class="fas fa-crow"></i></div>
+                <div><div class="msg-bubble"><i class="fas fa-circle-notch fa-spin"></i> Analyzing network logic...</div></div>
+            `;
+            body.appendChild(loadingRow);
+            body.scrollTop = body.scrollHeight;
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+            try {
+                // Call actual backend but mark simulation true if we want
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ query: text, simulation: true })
+                });
+                const data = await res.json();
+                
+                body.removeChild(loadingRow);
+                
+                let resText = data.intent_summary || "I processed your request, but this is a Demo interface.";
+                if(data.commands && data.commands.length > 0) {
+                    resText += "<br><br><b>Commands ready to run:</b><br><pre style='background:#f4f4f4;padding:8px;border-radius:4px;font-size:12px;margin-top:8px; color:#111;'>" + data.commands.join('\n') + "</pre>";
+                    resText += "<br><i>Please <a href='javascript:void(0)' onclick='switchToLogin()' style='color:#8b5cf6; font-weight:bold;'>Sign In</a> to execute these commands safely via Dashboard.</i>";
+                } else if(data.root_cause) {
+                    resText += "<br><br><b>Root Cause:</b> " + data.root_cause;
+                }
 
-    function delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+                const aiRow = document.createElement('div');
+                aiRow.className = 'msg-row ai';
+                aiRow.innerHTML = `
+                    <div class="msg-avatar"><i class="fas fa-crow"></i></div>
+                    <div>
+                        <div class="msg-bubble">${resText}</div>
+                        <div class="msg-actions">
+                            <button><i class="far fa-thumbs-up"></i></button>
+                            <button><i class="far fa-copy"></i></button>
+                        </div>
+                    </div>
+                `;
+                body.appendChild(aiRow);
+
+            } catch(e) {
+                body.removeChild(loadingRow);
+                const errRow = document.createElement('div');
+                errRow.className = 'msg-row ai';
+                errRow.innerHTML = `
+                    <div class="msg-avatar"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div><div class="msg-bubble" style="color:red;">Error connecting to NetAI Engine. Make sure backend is running.</div></div>
+                `;
+                body.appendChild(errRow);
+            }
+            body.scrollTop = body.scrollHeight;
+        }
+
+        // Enter key to send msg
+        document.getElementById('appChatInput').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') homepageSendMessage();
+        });
     </script>
 </body>
 </html>
