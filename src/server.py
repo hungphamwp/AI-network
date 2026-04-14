@@ -11,8 +11,10 @@ import secrets
 
 import requests
 from dotenv import load_dotenv
+import csv
+import io
 from fastapi import FastAPI, Request, Depends, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -48,6 +50,11 @@ app.add_middleware(
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    role: str = "viewer"
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -437,6 +444,115 @@ def update_channels(req: SettingsUpdate,
 def test_telegram(_: dict = Depends(require_admin)):
     result = send_telegram_alert("✅ NetAI test message — kết nối Telegram thành công!")
     return {"status": "success" if result else "error"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# USER MANAGEMENT (admin only)
+# ══════════════════════════════════════════════════════════════════════════════
+@app.get("/api/users")
+def list_users(_: dict = Depends(require_admin)):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, username, role, created_at FROM users ORDER BY id ASC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+@app.post("/api/users")
+def create_user(req: CreateUserRequest, _: dict = Depends(require_admin)):
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Mật khẩu tối thiểu 6 ký tự")
+    if req.role not in ("admin", "operator", "viewer"):
+        raise HTTPException(status_code=400, detail="Role không hợp lệ")
+    conn = get_conn()
+    existing = conn.execute("SELECT id FROM users WHERE username=?", (req.username,)).fetchone()
+    if existing:
+        conn.close()
+        raise HTTPException(status_code=409, detail="Tên đăng nhập đã tồn tại")
+    pwd_hash = hash_password(req.password)
+    conn.execute(
+        "INSERT INTO users (username, password_hash, role) VALUES (?,?,?)",
+        (req.username, pwd_hash, req.role)
+    )
+    conn.commit()
+    row = conn.execute("SELECT id, username, role, created_at FROM users WHERE username=?",
+                       (req.username,)).fetchone()
+    conn.close()
+    return {"status": "success", "user": dict(row)}
+
+
+@app.delete("/api/users/{user_id}")
+def delete_user(user_id: int, current: dict = Depends(require_admin)):
+    if current["user_id"] == user_id:
+        raise HTTPException(status_code=400, detail="Không thể xóa tài khoản đang đăng nhập")
+    conn = get_conn()
+    row = conn.execute("SELECT id FROM users WHERE id=?", (user_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
+    conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+
+@app.put("/api/users/{user_id}/role")
+def update_user_role(user_id: int, body: dict, current: dict = Depends(require_admin)):
+    role = body.get("role", "")
+    if role not in ("admin", "operator", "viewer"):
+        raise HTTPException(status_code=400, detail="Role không hợp lệ")
+    conn = get_conn()
+    conn.execute("UPDATE users SET role=? WHERE id=?", (role, user_id))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXPORT CSV
+# ══════════════════════════════════════════════════════════════════════════════
+@app.get("/api/export/history.csv")
+def export_history_csv(_: dict = Depends(get_current_user)):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, query, device_ip, severity, root_cause, intent, created_at "
+        "FROM diagnostics_log ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Câu hỏi", "IP thiết bị", "Mức độ", "Nguyên nhân", "Intent", "Thời gian"])
+    for r in rows:
+        writer.writerow([r["id"], r["query"], r["device_ip"], r["severity"],
+                         r["root_cause"], r["intent"], r["created_at"]])
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=lich_su_chan_doan.csv"}
+    )
+
+
+@app.get("/api/export/devices.csv")
+def export_devices_csv(_: dict = Depends(get_current_user)):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, name, ip, type, location, status, last_seen, created_at FROM devices ORDER BY id ASC"
+    ).fetchall()
+    conn.close()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Tên thiết bị", "IP", "Loại", "Vị trí", "Trạng thái", "Lần cuối online", "Ngày thêm"])
+    for r in rows:
+        writer.writerow([r["id"], r["name"], r["ip"], r["type"],
+                         r["location"], r["status"], r["last_seen"], r["created_at"]])
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=danh_sach_thiet_bi.csv"}
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

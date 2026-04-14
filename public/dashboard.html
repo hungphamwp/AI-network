@@ -903,29 +903,32 @@
         </div>
 
         <div class="nav-section">
-            <div class="nav-label">System</div>
+            <div class="nav-label">Hệ thống</div>
+            <div class="nav-item admin-only" onclick="goTab('users', this)" style="display:none;">
+                <i class="fas fa-users"></i> Người dùng
+            </div>
             <div class="nav-item" onclick="goTab('console', this)">
-                <i class="fas fa-terminal"></i> Console
+                <i class="fas fa-terminal"></i> Nhật ký
             </div>
             <div class="nav-item" onclick="goTab('settings', this)">
-                <i class="fas fa-cog"></i> Settings
+                <i class="fas fa-cog"></i> Cài đặt
             </div>
         </div>
 
         <div class="sidebar-footer">
             <div style="padding:10px 12px;margin-bottom:4px;border-radius:var(--r-sm);background:var(--bg-2);border:1px solid var(--border);">
-                <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:8px;">System Status</div>
+                <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:8px;">Trạng thái hệ thống</div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
                     <span style="font-size:10px;color:var(--text-2);">API Server</span>
-                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Online</span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Trực tuyến</span>
                 </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
                     <span style="font-size:10px;color:var(--text-2);">AI Engine</span>
-                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Ready</span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Sẵn sàng</span>
                 </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;">
                     <span style="font-size:10px;color:var(--text-2);">Telegram Bot</span>
-                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Active</span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--success);font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;"></span>Hoạt động</span>
                 </div>
             </div>
             <div class="nav-item" style="color:var(--error);" onclick="showToast('Đã ngắt kết nối server','warning')">
@@ -959,9 +962,21 @@
                     <div style="width:1px;height:24px;background:var(--border);"></div>
                     <div style="text-align:right;">
                         <div style="font-size:11px;color:var(--text-2);font-family:var(--font-mono);" id="clockDisplay"></div>
-                        <div style="font-size:9px;color:var(--text-3);margin-top:1px;">LOCAL TIME</div>
+                        <div style="font-size:9px;color:var(--text-3);margin-top:1px;">GIỜ ĐỊA PHƯƠNG</div>
                     </div>
-                    <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;" id="userAvatar" onclick="goTab('settings',document.querySelector('[onclick*=settings]'))" title="Settings"></div>
+                    <div style="position:relative;display:flex;align-items:center;gap:8px;">
+                        <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;" id="userAvatar" onclick="toggleUserMenu()" title="Tài khoản"></div>
+                        <div id="userMenu" style="display:none;position:absolute;top:38px;right:0;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:999;overflow:hidden;">
+                            <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
+                                <div style="font-size:12px;font-weight:600;" id="menuUsername"></div>
+                                <div style="font-size:10px;color:var(--text-3);" id="menuRole"></div>
+                            </div>
+                            <div style="padding:4px;">
+                                <div onclick="goTab('settings',document.querySelector('[onclick*=settings]'));closeUserMenu()" style="padding:8px 12px;border-radius:5px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;color:var(--text-2);" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background='transparent'"><i class="fas fa-cog" style="width:14px;"></i> Cài đặt</div>
+                                <div onclick="logout()" style="padding:8px 12px;border-radius:5px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;color:var(--error);" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background='transparent'"><i class="fas fa-right-from-bracket" style="width:14px;"></i> Đăng xuất</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1055,39 +1070,39 @@
                 <div class="stats-row">
                     <div class="stat-card">
                         <div class="stat-card-head">
-                            <div class="stat-label">Total Requests</div>
+                            <div class="stat-label">Tổng phân tích</div>
                             <div class="stat-icon" style="background:rgba(249,115,22,.1);color:var(--primary);"><i class="fas fa-arrow-trend-up"></i></div>
                         </div>
                         <div class="stat-value" id="statReq">0</div>
                         <div class="stat-bar"><div class="stat-bar-fill" id="barReq" style="background:var(--primary);"></div></div>
-                        <div class="stat-footer"><span class="stat-trend" id="trendReq">Session total</span></div>
+                        <div class="stat-footer"><span class="stat-trend" id="trendReq">Tổng phiên làm việc</span></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-card-head">
-                            <div class="stat-label">Commands Run</div>
+                            <div class="stat-label">Lệnh đã chạy</div>
                             <div class="stat-icon" style="background:rgba(59,130,246,.1);color:var(--info);"><i class="fas fa-terminal"></i></div>
                         </div>
                         <div class="stat-value" id="statCmd">0</div>
                         <div class="stat-bar"><div class="stat-bar-fill" id="barCmd" style="background:var(--info);"></div></div>
-                        <div class="stat-footer"><span class="stat-trend" id="trendCmd">SSH executions</span></div>
+                        <div class="stat-footer"><span class="stat-trend" id="trendCmd">Lệnh SSH thực thi</span></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-card-head">
-                            <div class="stat-label">Issues Found</div>
+                            <div class="stat-label">Sự cố phát hiện</div>
                             <div class="stat-icon" style="background:rgba(239,68,68,.1);color:var(--error);"><i class="fas fa-circle-exclamation"></i></div>
                         </div>
                         <div class="stat-value" style="color:var(--error);" id="statIssues">0</div>
                         <div class="stat-bar"><div class="stat-bar-fill" id="barIssues" style="background:var(--error);"></div></div>
-                        <div class="stat-footer"><span class="stat-trend" style="color:var(--error);" id="trendIssues">Active alerts</span></div>
+                        <div class="stat-footer"><span class="stat-trend" style="color:var(--error);" id="trendIssues">Cảnh báo hiện tại</span></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-card-head">
-                            <div class="stat-label">Fixes Applied</div>
+                            <div class="stat-label">Đã xử lý</div>
                             <div class="stat-icon" style="background:rgba(16,185,129,.1);color:var(--success);"><i class="fas fa-shield-check"></i></div>
                         </div>
                         <div class="stat-value" style="color:var(--success);" id="statFixes">0</div>
                         <div class="stat-bar"><div class="stat-bar-fill" id="barFixes" style="background:var(--success);"></div></div>
-                        <div class="stat-footer"><span class="stat-trend up" id="trendFixes">Remediations</span></div>
+                        <div class="stat-footer"><span class="stat-trend up" id="trendFixes">Sự cố đã khắc phục</span></div>
                     </div>
                 </div>
 
@@ -1123,7 +1138,10 @@
                         </div>
                     </div>
                     <div class="side-panel">
-                        <div class="side-panel-head">Lịch sử gần đây</div>
+                        <div class="side-panel-head" style="display:flex;align-items:center;justify-content:space-between;">
+                            <span>Lịch sử gần đây</span>
+                            <span onclick="exportHistoryCSV()" style="font-size:10px;color:var(--primary);cursor:pointer;font-weight:600;" title="Xuất CSV"><i class="fas fa-download"></i> CSV</span>
+                        </div>
                         <div class="side-panel-body" id="recentList">
                             <div style="text-align:center;padding:24px;color:var(--text-3);font-size:12px;">Chưa có dữ liệu</div>
                         </div>
@@ -1140,13 +1158,57 @@
                     <div class="topbar-sub">Quản lý và giám sát trạng thái thiết bị Core & Edge</div>
                 </div>
                 <div class="btns">
-                    <button class="btn btn-ghost" onclick="loadDevices()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn btn-ghost" onclick="exportDevicesCSV()"><i class="fas fa-file-csv"></i> Xuất CSV</button>
+                    <button class="btn btn-ghost" onclick="loadDevices()"><i class="fas fa-sync"></i> Làm mới</button>
                     <button class="btn btn-primary" onclick="openAddDevice()"><i class="fas fa-plus"></i> Thêm thiết bị</button>
                 </div>
             </div>
             <div class="devices-grid" id="devicesGrid">
                 <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-3);font-size:13px;">
                     <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>Đang tải thiết bị...
+                </div>
+            </div>
+        </div>
+
+        <!-- ── USERS ─────────────────────────────────────────────── -->
+        <div id="tab-users" class="tab-page">
+            <div class="topbar">
+                <div>
+                    <div class="topbar-title"><i class="fas fa-users" style="color:var(--primary);margin-right:8px;"></i>Quản lý người dùng</div>
+                    <div class="topbar-sub">Tạo, xóa và phân quyền tài khoản truy cập hệ thống</div>
+                </div>
+                <button class="btn btn-primary" onclick="openAddUser()"><i class="fas fa-plus"></i> Thêm người dùng</button>
+            </div>
+            <div id="usersGrid" style="display:grid;gap:12px;padding:0 4px;">
+                <div style="text-align:center;padding:48px;color:var(--text-3);font-size:13px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>Đang tải...
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal thêm user -->
+        <div id="modalAddUser" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:none;align-items:center;justify-content:center;">
+            <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;width:360px;box-shadow:0 16px 48px rgba(0,0,0,.5);">
+                <div style="font-size:15px;font-weight:700;margin-bottom:20px;"><i class="fas fa-user-plus" style="color:var(--primary);margin-right:8px;"></i>Thêm người dùng mới</div>
+                <div style="margin-bottom:12px;">
+                    <div class="input-label">Tên đăng nhập</div>
+                    <input class="input-field" id="newUserName" placeholder="vd: nguyen.van.a" autocomplete="off">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <div class="input-label">Mật khẩu</div>
+                    <input class="input-field" id="newUserPass" type="password" placeholder="Tối thiểu 6 ký tự">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <div class="input-label">Vai trò</div>
+                    <select class="input-field" id="newUserRole">
+                        <option value="viewer">Viewer — Chỉ xem</option>
+                        <option value="operator">Operator — Phân tích mạng</option>
+                        <option value="admin">Admin — Toàn quyền</option>
+                    </select>
+                </div>
+                <div class="btns">
+                    <button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="closeAddUser()">Hủy</button>
+                    <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveNewUser()"><i class="fas fa-save"></i> Lưu</button>
                 </div>
             </div>
         </div>
@@ -1167,12 +1229,12 @@
         <div id="tab-console" class="tab-page">
             <div class="topbar">
                 <div>
-                    <div class="topbar-title"><i class="fas fa-terminal" style="color:var(--primary);margin-right:8px;"></i>Console Log</div>
-                    <div class="topbar-sub">Live server output</div>
+                    <div class="topbar-title"><i class="fas fa-terminal" style="color:var(--primary);margin-right:8px;"></i>Nhật ký hệ thống</div>
+                    <div class="topbar-sub">Theo dõi hoạt động server theo thời gian thực</div>
                 </div>
                 <div class="btns">
-                    <button class="btn btn-ghost" onclick="clearConsole()"><i class="fas fa-trash"></i> Clear</button>
-                    <button class="btn btn-ghost" onclick="downloadLogs()"><i class="fas fa-download"></i> Export</button>
+                    <button class="btn btn-ghost" onclick="clearConsole()"><i class="fas fa-trash"></i> Xóa</button>
+                    <button class="btn btn-ghost" onclick="downloadLogs()"><i class="fas fa-download"></i> Tải xuống</button>
                 </div>
             </div>
             <div class="console-wrap">
@@ -1184,8 +1246,8 @@
         <div id="tab-settings" class="tab-page">
             <div class="topbar">
                 <div>
-                    <div class="topbar-title"><i class="fas fa-cog" style="color:var(--primary);margin-right:8px;"></i>Settings</div>
-                    <div class="topbar-sub">Cấu hình hệ thống</div>
+                    <div class="topbar-title"><i class="fas fa-cog" style="color:var(--primary);margin-right:8px;"></i>Cài đặt</div>
+                    <div class="topbar-sub">Cấu hình hệ thống và kết nối</div>
                 </div>
             </div>
             <div class="settings-wrap">
@@ -1194,8 +1256,8 @@
                     <div class="settings-card-head">
                         <div class="settings-icon" style="background:rgba(16,185,129,.1);color:var(--success);"><i class="fas fa-laptop"></i></div>
                         <div>
-                            <div class="settings-title">Local Mode</div>
-                            <div class="settings-sub">Running on your machine</div>
+                            <div class="settings-title">Chế độ cục bộ</div>
+                            <div class="settings-sub">Đang chạy trên máy của bạn</div>
                         </div>
                     </div>
                     <div class="settings-body">
@@ -1213,15 +1275,15 @@
                     <div class="settings-card-head">
                         <div class="settings-icon" style="background:var(--primary-soft);color:var(--primary);"><i class="fas fa-shield-halved"></i></div>
                         <div>
-                            <div class="settings-title">Security</div>
-                            <div class="settings-sub">Authentication settings</div>
+                            <div class="settings-title">Bảo mật</div>
+                            <div class="settings-sub">Cài đặt xác thực và mật khẩu</div>
                         </div>
                     </div>
                     <div class="settings-body">
                         <div class="settings-row">
                             <div>
-                                <div style="font-size:13px;font-weight:500;">Require Login</div>
-                                <div class="settings-sub">Yêu cầu mật khẩu khi truy cập dashboard</div>
+                                <div style="font-size:13px;font-weight:500;">Yêu cầu đăng nhập</div>
+                                <div class="settings-sub">Yêu cầu mật khẩu khi truy cập bảng điều khiển</div>
                             </div>
                             <label class="toggle">
                                 <input type="checkbox" checked>
@@ -1247,8 +1309,8 @@
                     <div class="settings-card-head">
                         <div class="settings-icon" style="background:rgba(245,158,11,.1);color:var(--warning);"><i class="fas fa-bolt"></i></div>
                         <div>
-                            <div class="settings-title">Auto Fix</div>
-                            <div class="settings-sub">Tự động áp dụng fix commands</div>
+                            <div class="settings-title">Tự động sửa lỗi</div>
+                            <div class="settings-sub">Tự động áp dụng lệnh sửa khi phát hiện vấn đề</div>
                         </div>
                     </div>
                     <div class="settings-body">
@@ -1509,6 +1571,133 @@ function logout() {
     window.location.href = '/index.html';
 }
 
+// ── User dropdown menu ──────────────────────────────────────────────────────
+function toggleUserMenu() {
+    const m = document.getElementById('userMenu');
+    m.style.display = m.style.display === 'block' ? 'none' : 'block';
+}
+function closeUserMenu() {
+    document.getElementById('userMenu').style.display = 'none';
+}
+document.addEventListener('click', e => {
+    const avatar = document.getElementById('userAvatar');
+    const menu   = document.getElementById('userMenu');
+    if (menu && avatar && !avatar.contains(e.target) && !menu.contains(e.target)) {
+        menu.style.display = 'none';
+    }
+});
+
+// ── User management ─────────────────────────────────────────────────────────
+async function loadUsers() {
+    const res = await apiFetch('/api/users');
+    if (!res) return;
+    const users = await res.json();
+    renderUsers(users);
+}
+
+function renderUsers(users) {
+    const grid = document.getElementById('usersGrid');
+    if (!users.length) {
+        grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-3);font-size:13px;">Chưa có người dùng nào</div>';
+        return;
+    }
+    const roleLabel = { admin: 'Quản trị viên', operator: 'Vận hành', viewer: 'Chỉ xem' };
+    const roleColor = { admin: 'var(--error)', operator: 'var(--warning)', viewer: 'var(--text-3)' };
+    const currentUser = localStorage.getItem('netai_user');
+    grid.innerHTML = users.map(u => `
+        <div style="display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">${u.username[0].toUpperCase()}</div>
+            <div style="flex:1;">
+                <div style="font-size:13px;font-weight:600;">${u.username} ${u.username===currentUser?'<span style="font-size:10px;color:var(--text-3);">(bạn)</span>':''}</div>
+                <div style="font-size:11px;color:var(--text-3);margin-top:2px;">Tham gia: ${u.created_at ? u.created_at.slice(0,10) : '—'}</div>
+            </div>
+            <select onchange="changeUserRole(${u.id}, this.value)" style="background:var(--bg-3);border:1px solid var(--border);color:${roleColor[u.role]||'var(--text-2)'};font-size:11px;font-weight:600;padding:4px 8px;border-radius:5px;cursor:pointer;">
+                <option value="viewer"   ${u.role==='viewer'   ?'selected':''}>Chỉ xem</option>
+                <option value="operator" ${u.role==='operator' ?'selected':''}>Vận hành</option>
+                <option value="admin"    ${u.role==='admin'    ?'selected':''}>Quản trị viên</option>
+            </select>
+            ${u.username !== currentUser ? `<button onclick="deleteUserById(${u.id},'${u.username}')" style="background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);color:var(--error);padding:6px 10px;border-radius:5px;cursor:pointer;font-size:11px;"><i class="fas fa-trash"></i></button>` : ''}
+        </div>`).join('');
+}
+
+function openAddUser() {
+    document.getElementById('modalAddUser').style.display = 'flex';
+    document.getElementById('newUserName').value = '';
+    document.getElementById('newUserPass').value = '';
+    document.getElementById('newUserRole').value = 'viewer';
+    setTimeout(() => document.getElementById('newUserName').focus(), 100);
+}
+function closeAddUser() {
+    document.getElementById('modalAddUser').style.display = 'none';
+}
+async function saveNewUser() {
+    const username = document.getElementById('newUserName').value.trim();
+    const password = document.getElementById('newUserPass').value;
+    const role     = document.getElementById('newUserRole').value;
+    if (!username || !password) { showToast('Vui lòng điền đầy đủ thông tin', 'error'); return; }
+    const res = await apiFetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role })
+    });
+    if (!res) return;
+    if (res.ok) {
+        showToast('Đã thêm người dùng thành công', 'success');
+        closeAddUser();
+        loadUsers();
+    } else {
+        const err = await res.json();
+        showToast(err.detail || 'Thêm thất bại', 'error');
+    }
+}
+async function deleteUserById(id, name) {
+    if (!confirm(`Xóa người dùng "${name}"?`)) return;
+    const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+    if (res && res.ok) { showToast('Đã xóa người dùng', 'success'); loadUsers(); }
+    else showToast('Xóa thất bại', 'error');
+}
+async function changeUserRole(id, role) {
+    const res = await apiFetch(`/api/users/${id}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+    });
+    if (res && res.ok) showToast('Đã cập nhật vai trò', 'success');
+    else showToast('Cập nhật thất bại', 'error');
+}
+
+// ── Export CSV ──────────────────────────────────────────────────────────────
+function exportHistoryCSV() {
+    const a = document.createElement('a');
+    a.href = '/api/export/history.csv';
+    a.setAttribute('Authorization', 'Bearer ' + getToken());
+    // Use fetch to include auth header
+    apiFetch('/api/export/history.csv').then(res => {
+        if (!res) return;
+        return res.blob();
+    }).then(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'lich_su_chan_doan.csv'; a.click();
+        URL.revokeObjectURL(url);
+        showToast('Đã xuất file CSV', 'success');
+    });
+}
+function exportDevicesCSV() {
+    apiFetch('/api/export/devices.csv').then(res => {
+        if (!res) return;
+        return res.blob();
+    }).then(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'danh_sach_thiet_bi.csv'; a.click();
+        URL.revokeObjectURL(url);
+        showToast('Đã xuất file CSV', 'success');
+    });
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════
@@ -1524,6 +1713,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const av = document.getElementById('userAvatar');
     if (av) av.textContent = initials;
     localStorage.setItem('netai_user', me.username);
+    localStorage.setItem('netai_role', me.role || 'viewer');
+
+    // Set user menu info
+    const menuUser = document.getElementById('menuUsername');
+    const menuRole = document.getElementById('menuRole');
+    const roleLabel = { admin: 'Quản trị viên', operator: 'Vận hành', viewer: 'Chỉ xem' };
+    if (menuUser) menuUser.textContent = me.username;
+    if (menuRole) menuRole.textContent = roleLabel[me.role] || me.role;
+
+    // Show admin-only nav items
+    if (me.role === 'admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+    }
 
     // Init UI
     renderModelPicker();
@@ -1538,7 +1740,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadAIConfig();
     loadTelegramSettings();
     startStatusPolling();
-    log('NetAI Agent initialized — user: ' + me.username, 'success');
+    log('NetAI Agent đã khởi động — người dùng: ' + me.username, 'success');
 });
 
 function updateClock() {
@@ -1909,6 +2111,7 @@ function goTab(id, el) {
     document.getElementById('tab-' + id)?.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     if (el) el.classList.add('active');
+    if (id === 'users') loadUsers();
 }
 
 // ═══════════════════════════════════════════════════════════════════
