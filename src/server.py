@@ -28,7 +28,7 @@ load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 # ── Internal modules ───────────────────────────────────────────────────────────
 from src.db   import get_conn, init_all_tables, seed_default_user, seed_demo_devices, log_diagnostic
 from src.auth import (create_access_token, authenticate_user, change_user_password,
-                      get_current_user, require_admin, hash_password)
+                      get_current_user, require_admin, require_operator, hash_password)
 from src.agent.graph import run_agent
 from src.supabase_sync import (sync_device_upsert, sync_device_delete,
                                 sync_all_from_sqlite)
@@ -348,7 +348,7 @@ def get_trend():
 # AI ANALYZE & APPLY FIX
 # ══════════════════════════════════════════════════════════════════════════════
 @app.post("/api/analyze")
-def analyze_network(req: QueryRequest):
+def analyze_network(req: QueryRequest, _: dict = Depends(require_operator)):
     try:
         print(f"📡 Analyze: {req.query[:80]} | model={req.preferred_model} sim={req.simulation}")
         state = run_agent(req.query, preferred_model=req.preferred_model, simulation=req.simulation)

@@ -72,7 +72,15 @@ def get_current_user(request: Request) -> dict:
 def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="Admin access required")
+                            detail="Yêu cầu quyền Admin")
+    return user
+
+
+def require_operator(user: dict = Depends(get_current_user)) -> dict:
+    """Cho phép admin và operator — chặn viewer."""
+    if user.get("role") not in ("admin", "operator"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Tài khoản của bạn chỉ có quyền xem, không thể thực hiện thao tác này")
     return user
 
 

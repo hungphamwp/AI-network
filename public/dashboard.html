@@ -1058,9 +1058,9 @@
                             </div>
                         </div>
                         <div class="btns">
-                            <button class="btn btn-ghost" onclick="clearAll()"><i class="fas fa-trash-alt"></i> Clear</button>
-                            <button class="btn btn-primary" id="sendBtn" onclick="submitQuery()">
-                                Send <i class="fas fa-paper-plane"></i>
+                            <button class="btn btn-ghost operator-only" onclick="clearAll()"><i class="fas fa-trash-alt"></i> Xóa</button>
+                            <button class="btn btn-primary operator-only" id="sendBtn" onclick="submitQuery()">
+                                Phân tích <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
                     </div>
@@ -1160,7 +1160,7 @@
                 <div class="btns">
                     <button class="btn btn-ghost" onclick="exportDevicesCSV()"><i class="fas fa-file-csv"></i> Xuất CSV</button>
                     <button class="btn btn-ghost" onclick="loadDevices()"><i class="fas fa-sync"></i> Làm mới</button>
-                    <button class="btn btn-primary" onclick="openAddDevice()"><i class="fas fa-plus"></i> Thêm thiết bị</button>
+                    <button class="btn btn-primary admin-only" onclick="openAddDevice()" style="display:none;"><i class="fas fa-plus"></i> Thêm thiết bị</button>
                 </div>
             </div>
             <div class="devices-grid" id="devicesGrid">
@@ -1571,6 +1571,34 @@ function logout() {
     window.location.href = '/index.html';
 }
 
+// ── Phân quyền theo role ────────────────────────────────────────────────────
+function applyRolePermissions(role) {
+    // Admin: thấy tất cả
+    if (role === 'admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+        document.querySelectorAll('.operator-only').forEach(el => el.style.display = '');
+        return;
+    }
+    // Operator: chạy phân tích được, nhưng không quản lý thiết bị/user/settings
+    if (role === 'operator') {
+        document.querySelectorAll('.operator-only').forEach(el => el.style.display = '');
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.no-viewer').forEach(el => el.style.display = 'none');
+        return;
+    }
+    // Viewer: chỉ xem — ẩn tất cả nút hành động
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.operator-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.no-viewer').forEach(el => el.style.display = 'none');
+    // Vô hiệu hoá ô nhập câu hỏi và nút gửi
+    const qi = document.getElementById('queryInput');
+    const sb = document.getElementById('submitBtn');
+    if (qi) { qi.disabled = true; qi.placeholder = 'Tài khoản của bạn chỉ có quyền xem'; }
+    if (sb) { sb.disabled = true; sb.title = 'Không đủ quyền'; }
+    // Ẩn tab Settings
+    document.querySelectorAll('[onclick*="settings"]').forEach(el => el.style.display = 'none');
+}
+
 // ── User dropdown menu ──────────────────────────────────────────────────────
 function toggleUserMenu() {
     const m = document.getElementById('userMenu');
@@ -1722,10 +1750,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (menuUser) menuUser.textContent = me.username;
     if (menuRole) menuRole.textContent = roleLabel[me.role] || me.role;
 
-    // Show admin-only nav items
-    if (me.role === 'admin') {
-        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
-    }
+    // Áp dụng quyền theo role
+    applyRolePermissions(me.role);
 
     // Init UI
     renderModelPicker();
@@ -1823,13 +1849,21 @@ async function loadDevices() {
 
 function renderDevicesPage() {
     const g = document.getElementById('devicesGrid');
+    const isAdmin = localStorage.getItem('netai_role') === 'admin';
     if (!APP.devices.length) {
         g.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-3);">
             <i class="fas fa-server" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3;"></i>
-            Chưa có thiết bị nào. <span style="color:var(--primary);cursor:pointer;" onclick="openAddDevice()">Thêm thiết bị đầu tiên</span>
+            Chưa có thiết bị nào.${isAdmin ? ' <span style="color:var(--primary);cursor:pointer;" onclick="openAddDevice()">Thêm thiết bị đầu tiên</span>' : ''}
         </div>`;
         return;
     }
+    const adminBtns = isAdmin ? `
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" title="Sửa" onclick="openEditDevice(${0})">
+            <i class="fas fa-pen"></i>
+        </button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--error);" title="Xóa" onclick="deleteDevice(0,'')">
+            <i class="fas fa-trash"></i>
+        </button>` : '';
     g.innerHTML = APP.devices.map((d, i) => `
         <div class="device-card" data-device-id="${d.id}">
             <div class="device-card-head">
@@ -1841,15 +1875,15 @@ function renderDevicesPage() {
             </div>
             <div class="device-meta">
                 <div class="device-meta-item">
-                    <div class="device-meta-label">Type</div>
+                    <div class="device-meta-label">Loại</div>
                     <div class="device-meta-val">${d.type}</div>
                 </div>
                 <div class="device-meta-item">
-                    <div class="device-meta-label">Location</div>
+                    <div class="device-meta-label">Vị trí</div>
                     <div class="device-meta-val">${escHtml(d.location || '—')}</div>
                 </div>
                 <div class="device-meta-item">
-                    <div class="device-meta-label">Last Seen</div>
+                    <div class="device-meta-label">Lần cuối online</div>
                     <div class="device-meta-val last-seen" style="font-size:10px;">${d.last_seen ? new Date(d.last_seen).toLocaleTimeString('vi-VN') : '—'}</div>
                 </div>
                 <div class="device-meta-item">
@@ -1863,15 +1897,16 @@ function renderDevicesPage() {
                     ${(d.status || 'unknown').toUpperCase()}
                 </span>
                 <div class="btns">
-                    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" title="Query" onclick="selectDevice(${i});goTab('dashboard',document.querySelector('[onclick*=dashboard]'))">
+                    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" title="Phân tích" onclick="selectDevice(${i});goTab('dashboard',document.querySelector('[onclick*=dashboard]'))">
                         <i class="fas fa-terminal"></i>
                     </button>
+                    ${isAdmin ? `
                     <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" title="Sửa" onclick="openEditDevice(${i})">
                         <i class="fas fa-pen"></i>
                     </button>
                     <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--error);" title="Xóa" onclick="deleteDevice(${d.id},'${escHtml(d.name)}')">
                         <i class="fas fa-trash"></i>
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>
         </div>
